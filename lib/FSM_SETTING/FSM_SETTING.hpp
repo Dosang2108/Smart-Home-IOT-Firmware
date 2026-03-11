@@ -2,34 +2,18 @@
 #define FSM_SETTING_HPP
 
 #include <Arduino.h>
-#include <global_var.hpp>
-#include <control.hpp>
+#include <IRrecv.h>
+#include <IRremoteESP8266.h>
+#include <IRutils.h>
+#include "global_var.hpp"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-///
-void FSM_Main();
-void FSM_Auto();
-void FSM_Manual();
-
-
-
-
-
-
-
-
-
-
-///
-
-
-
-
-
-
+void initIR();
+void handleIRRemote();
+void processPasswordFSM(char key);
 
 #ifdef __cplusplus
 }

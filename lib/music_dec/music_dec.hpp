@@ -106,6 +106,9 @@ extern "C" {
 
 
 void play_music(uint8_t BUZ_PIN);
+void play_beep(uint8_t BUZ_PIN);
+void play_success_sound(uint8_t BUZ_PIN);
+void play_error_sound(uint8_t BUZ_PIN);
 
 
 #ifdef __cplusplus

@@ -3,9 +3,8 @@
 
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
+#include <time.h>
 #include "global_var.hpp"
-#include "DHT20.h"
-
 
 #ifdef __cplusplus
 extern "C"
@@ -13,8 +12,11 @@ extern "C"
 #endif
 
 extern LiquidCrystal_I2C lcd;
-extern DHT20 DHT;
-void lcdDisplay();
+
+void initNTP();
+void lcdDisplayRow1();
+void lcdDisplayRow2();
+void lcdUpdateColon();
 
 #ifdef __cplusplus
 }

@@ -1,383 +1,149 @@
 #include <MQTT.hpp>
+#include <control.hpp>
 
-long lastMsg = 0; // Thời điểm gửi tin nhắn cuối cùng
-
-// Khởi tạo MQTT Client
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
-bool flag_transmit = false;
-int count_flag = 0;
 
 void init_Wifi_and_MQTT(void)
 {
-  // Kết nối WiFi
-  Serial.print("Đang kết nối WiFi...");
+  Serial.print("Connecting WiFi...");
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\nWiFi đã kết nối");
+  Serial.println("\nWiFi connected");
 
-  // Cấu hình MQTT Server và callback
   espClient.setInsecure();
   client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(receiver_data);
+  client.setCallback(mqtt_callback);
 }
 
-String mode = "AUTO";
-// Transmit_data
-void Transmit_receiver_data(void)
+void registerChannels(void)
 {
-  if (!client.connected())
-  {
-    reconnect(); // Kết nối lại nếu mất kết nối
-  }
-  client.loop(); // Lắng nghe dữ liệu từ MQTT
+  if (!client.connected()) reconnect();
+  client.subscribe(MQTT_TOPIC_V10);
+  client.subscribe(MQTT_TOPIC_V11);
+  client.subscribe(MQTT_TOPIC_V12);
+  client.subscribe(MQTT_TOPIC_V14);
+  Serial.println("Registered MQTT channels: V10, V11, V12, V14");
+}
 
-  // Gửi dữ liệu mỗi 100 ms
-  if (millis_present - lastMsg > priod_receiver_data)
-  {
-    lastMsg = millis_present;
-    StaticJsonDocument<200> doc;
-    StaticJsonDocument<200> statusdevice;
-    // doc["temperature"] = 25;
-    // doc["humidity"] = 60;
-    // doc["pressure"] = 1012;
-    // doc["gas"] = 300;
-    doc["area"] = ID_area_send;
-    doc["temperature"] = Value_Temperature;
-    doc["humidity"] = Value_Humidity;
-    doc["light"] = Value_Light;
-    doc["soilMoisture"] = Value_SoilMoisture;
+void mqttLoop(void)
+{
+  if (!client.connected()) reconnect();
+  client.loop();
+}
 
-    //statusdevice["deviceName"]=0;
-    statusdevice["area"]= ID_area_send;
-    statusdevice["mode"]= mode;
+void publishSensorData(void)
+{
+  char buf[16];
+  snprintf(buf, sizeof(buf), "%.1f", Value_Temperature);
+  client.publish(MQTT_TOPIC_V1, buf);
 
-    char output[200];
-    serializeJson(doc, output);
-    char output1[200];
-    serializeJson(statusdevice, output1);
+  snprintf(buf, sizeof(buf), "%.1f", Value_Humidity);
+  client.publish(MQTT_TOPIC_V2, buf);
 
-    if (flag_transmit){
-      Serial.println("------------------------------------------------");
-      Serial.println("Gửi dữ liệu tới topic:");
-      Serial.println(topicPub);
-      Serial.println(output);
-      client.publish(topicPub, output);
-      Serial.println("------------------------------------------------");
-    }
-    if(!flag_transmit)
-    {
-      Serial.println("------------------------------------------------");
-      Serial.println("Gửi dữ liệu tới topic:");
-      Serial.println(output1);
-      client.publish(topicPub, output1);
-      Serial.println("------------------------------------------------");
-      if(count_flag > 5){ 
-        flag_transmit = true;
-      }
-      count_flag++;
-      delay(1000);
-    }
-    
-    
+  snprintf(buf, sizeof(buf), "%d", Value_Light);
+  client.publish(MQTT_TOPIC_V3, buf);
+
+  Serial.printf("Published: V1=%.1f V2=%.1f V3=%d\n",
+                Value_Temperature, Value_Humidity, Value_Light);
+}
+
+void publishFeedback(const char* message)
+{
+  client.publish(MQTT_TOPIC_V13, message);
+  Serial.printf("Feedback V13: %s\n", message);
+}
+
+// Parse hex color string like "#FF00AA" or "FF00AA"
+static void parseColorCode(const char* colorStr)
+{
+  const char* hex = colorStr;
+  if (hex[0] == '#') hex++;
+  if (strlen(hex) >= 6) {
+    char rStr[3] = {hex[0], hex[1], '\0'};
+    char gStr[3] = {hex[2], hex[3], '\0'};
+    char bStr[3] = {hex[4], hex[5], '\0'};
+    mqttLedR = (uint8_t)strtol(rStr, NULL, 16);
+    mqttLedG = (uint8_t)strtol(gStr, NULL, 16);
+    mqttLedB = (uint8_t)strtol(bStr, NULL, 16);
   }
 }
 
-// Hàm xử lý khi nhận dữ liệu từ MQTT
-// Dự phòng dung lượng đủ để chứa dữ liệu JSON
-StaticJsonDocument<200> receivedValues;
-
-// Hàm xử lý khi nhận dữ liệu từ MQTT
-void receiver_data(char *topic, byte *payload, unsigned int length)
+void mqtt_callback(char* topic, byte* payload, unsigned int length)
 {
-  // Kiểm tra dữ liệu payload có hợp lệ không
-  if (payload == nullptr || length == 0)
-  {
-    Serial.println("Received empty or invalid payload.");
-    return;
-  }
+  if (payload == nullptr || length == 0) return;
 
-  // Chuyển payload (dữ liệu nhận được) thành chuỗi string
   char message[length + 1];
   memcpy(message, payload, length);
-  message[length] = '\0'; // Đảm bảo kết thúc chuỗi
+  message[length] = '\0';
 
-  // In ra chuỗi JSON nhận được
-  Serial.println("Received JSON string:");
-  Serial.println(message);
+  Serial.printf("MQTT [%s]: %s\n", topic, message);
 
-  // Giải mã JSON từ chuỗi string
-  DeserializationError error = deserializeJson(receivedValues, message);
-  if (error)
-  {
-    Serial.printf("JSON parsing failed: %s\n", error.c_str());
-    return;
-  }
+  String topicStr(topic);
 
-  if (receivedValues["area"].as<int>() == ID_area_recv){
-      // Kiểm tra và lấy các giá trị từ JSON
-    Serial.printf("Area: %d\n",receivedValues["area"].as<int>());
-    if (receivedValues.containsKey("deviceMode"))
-        {
-          State_FSM = receivedValues["deviceMode"].as<bool>();
-          Serial.printf("deviceMode: %d\n", State_FSM);
-        }
-    if (receivedValues.containsKey("deviceName"))
-    {
-        
-      // fan1
-      if (receivedValues["deviceName"].as<String>() == "Fan1")
-      {
-        Fan1.name = receivedValues["deviceName"].as<String>();
-        Serial.printf("Device Name: %s\n", Fan1.name.c_str());
-
-        if (receivedValues.containsKey("active"))
-        {
-          Fan1.active = receivedValues["active"].as<bool>();
-          Serial.printf("Active: %d\n", Fan1.active);
-        }
-        else
-        {
-          Serial.println("No Fan1 active found in JSON.");
-        }
-
-        if (receivedValues.containsKey("value"))
-        {
-          Fan1.value = receivedValues["value"].as<int>();
-          Serial.printf("value: %d\n", Fan1.value);
-        }
-        else
-        {
-          Serial.println("No Fan1 value found in JSON.");
-        }
-
-        // if (receivedValues.containsKey("deviceMode"))
-        // {
-        //   State_FSM = receivedValues["deviceMode"].as<bool>();
-        //   Serial.printf("deviceMode: %d\n", State_FSM);
-        // }
-      }
-
-      // Pump1
-      if (receivedValues["deviceName"].as<String>() == "Pump1")
-      {
-        Pump1.name = receivedValues["deviceName"].as<String>();
-        Serial.printf("Device Name: %s\n", Pump1.name.c_str());
-
-        if (receivedValues.containsKey("active"))
-        {
-          Pump1.active = receivedValues["active"].as<bool>();
-          Serial.printf("Active: %d\n", Pump1.active);
-        }
-        else
-        {
-          Serial.println("No Pump1 active found in JSON.");
-        }
-
-        if (receivedValues.containsKey("value"))
-        {
-          Pump1.value = receivedValues["value"].as<int>();
-          Serial.printf("value: %d\n", Pump1.value);
-        }
-        else
-        {
-          Serial.println("No Pump1 value found in JSON.");
-        }
-
-        // if (receivedValues.containsKey("deviceMode"))
-        // {
-        //   State_FSM = receivedValues["deviceMode"].as<bool>();
-        //   Serial.printf("deviceMode: %d\n", State_FSM);
-        // }
-      }
-
-      // Led1
-      if (receivedValues["deviceName"].as<String>() == "Led1")
-      {
-        Led1.name = receivedValues["deviceName"].as<String>();
-        Serial.printf("Device Name: %s\n", Led1.name.c_str());
-
-        if (receivedValues.containsKey("active"))
-        {
-          Led1.active = receivedValues["active"].as<bool>();
-          Serial.printf("Active: %d\n", Led1.active);
-        }
-        else
-        {
-          Serial.println("No Led1 active found in JSON.");
-        }
-
-        if (receivedValues.containsKey("value"))
-        {
-          Led1.value = receivedValues["value"].as<int>();
-          Serial.printf("Value: %d\n", Led1.value);
-        }
-        else
-        {
-          Serial.println("No Led1 value found in JSON.");
-        }
-
-        // if (receivedValues.containsKey("deviceMode"))
-        // {
-        //   State_FSM = receivedValues["deviceMode"].as<bool>();
-        //   Serial.printf("deviceMode: %d\n", State_FSM);
-        // }
-      }
+  // V10: LED on/off ("1" or "0")
+  if (topicStr == MQTT_TOPIC_V10) {
+    mqttLedState = (message[0] == '1');
+    if (mqttLedState) {
+      led_rgb_set(mqttLedR, mqttLedG, mqttLedB);
+      publishFeedback("Den da bat");
+    } else {
+      led_rgb_off();
+      publishFeedback("Den da tat");
     }
-
-    else
-    {
-      Serial.println("No deviceName found in JSON.");
-    }
-
   }
-
-  
-
-  //   // Fan2
-  //   if (receivedValues["deviceName"].as<String>() == "Fan2")
-  //   {
-  //     Fan2.name = receivedValues["deviceName"].as<String>();
-  //     Serial.printf("Device Name: %s\n", Fan2.name.c_str());
-
-  //     if (receivedValues.containsKey("active"))
-  //     {
-  //       Fan2.active = receivedValues["active"].as<bool>();
-  //       Serial.printf("Active: %d\n", Fan2.active);
-  //     }
-  //     else
-  //     {
-  //       Serial.println("No Fan2 active found in JSON.");
-  //     }
-
-  //     if (receivedValues.containsKey("value"))
-  //     {
-  //       Fan2.value = receivedValues["value"].as<int>();
-  //       Serial.printf("value: %d\n", Fan2.value);
-  //     }
-  //     else
-  //     {
-  //       Serial.println("No Fan2 value found in JSON.");
-  //     }
-
-  //     if (receivedValues.containsKey("deviceMode"))
-  //     {
-  //       State_FSM = receivedValues["deviceMode"].as<bool>();
-  //       Serial.printf("deviceMode: %d\n", State_FSM);
-  //     }
-  //   }
-
-  //   // Pump2
-  //   if (receivedValues["deviceName"].as<String>() == "Pump2")
-  //   {
-  //     Pump2.name = receivedValues["deviceName"].as<String>();
-  //     Serial.printf("Device Name: %s\n", Pump2.name.c_str());
-
-  //     if (receivedValues.containsKey("active"))
-  //     {
-  //       Pump2.active = receivedValues["active"].as<bool>();
-  //       Serial.printf("Active: %d\n", Pump2.active);
-  //     }
-  //     else
-  //     {
-  //       Serial.println("No Pump2 active found in JSON.");
-  //     }
-
-  //     if (receivedValues.containsKey("value"))
-  //     {
-  //       Pump2.value = receivedValues["value"].as<int>();
-  //       Serial.printf("value: %d\n", Pump2.value);
-  //     }
-  //     else
-  //     {
-  //       Serial.println("No Pump2 value found in JSON.");
-  //     }
-
-  //     if (receivedValues.containsKey("deviceMode"))
-  //     {
-  //       State_FSM = receivedValues["deviceMode"].as<bool>();
-  //       Serial.printf("deviceMode: %d\n", State_FSM);
-  //     }
-  //   }
-
-  //   // Led2
-  //   if (receivedValues["deviceName"].as<String>() == "Led2")
-  //   {
-  //     Led2.name = receivedValues["deviceName"].as<String>();
-  //     Serial.printf("Device Name: %s\n", Led2.name.c_str());
-
-  //     if (receivedValues.containsKey("active"))
-  //     {
-  //       Led2.active = receivedValues["active"].as<bool>();
-  //       Serial.printf("Active: %d\n", Led2.active);
-  //     }
-  //     else
-  //     {
-  //       Serial.println("No Led2 active found in JSON.");
-  //     }
-
-  //     if (receivedValues.containsKey("value"))
-  //     {
-  //       Led2.value = receivedValues["value"].as<int>();
-  //       Serial.printf("value: %d\n", Led2.value);
-  //     }
-  //     else
-  //     {
-  //       Serial.println("No Led2 value found in JSON.");
-  //     }
-
-  //     if (receivedValues.containsKey("deviceMode"))
-  //     {
-  //       State_FSM = receivedValues["deviceMode"].as<bool>();
-  //       Serial.printf("deviceMode: %d\n", State_FSM);
-  //     }
-  //   }
-  // }
-
-
-  //   if (receivedValues.containsKey("active")) {
-  //     bool active = receivedValues["active"].as<bool>();
-  //     Serial.printf("Active: %d\n", active);
-  //   } else {
-  //     Serial.println("No active found in JSON.");
-  //   }
-
-  //   if (receivedValues.containsKey("value")) {
-  //     JsonVariant value = receivedValues["value"];
-  //     if (value.isNull()) {
-  //       Serial.println("Value is null");
-  //     } else {
-  //       Serial.printf("Value: %s\n", value.as<String>().c_str());
-  //     }
-  //   } else {
-  //     Serial.println("No value found in JSON.");
-  //   }
+  // V11: LED color code (e.g., "#FF0000")
+  else if (topicStr == MQTT_TOPIC_V11) {
+    parseColorCode(message);
+    if (mqttLedState) {
+      led_rgb_set(mqttLedR, mqttLedG, mqttLedB);
+    }
+    publishFeedback("Da doi mau den");
+  }
+  // V12: Fan speed (string number 0-100)
+  else if (topicStr == MQTT_TOPIC_V12) {
+    mqttFanSpeed = constrain(atoi(message), 0, 100);
+    fan_set_speed(mqttFanSpeed);
+    char fb[32];
+    snprintf(fb, sizeof(fb), "Quat: %d%%", mqttFanSpeed);
+    publishFeedback(fb);
+  }
+  // V14: FaceAI result ("A" or "B")
+  else if (topicStr == MQTT_TOPIC_V14) {
+    faceAIResult = String(message);
+    if (faceAIResult == "A") {
+      servo_open();
+      doorState = DOOR_OPENING;
+      doorOpenTime = millis();
+      publishFeedback("Nhan dien thanh cong - Mo cua");
+    } else if (faceAIResult == "B") {
+      publishFeedback("Nhan dien: Khach");
+    }
+  }
 }
 
-// Hàm tự động kết nối lại MQTT
 void reconnect()
 {
   while (!client.connected())
   {
-    Serial.print("Đang kết nối lại MQTT...");
+    Serial.print("Connecting MQTT...");
     String clientId = "ESP32Client-" + String(random(0xffff), HEX);
-    //clientID += String(random(0xffff),HEX);
     if (client.connect(clientId.c_str(), mqtt_username, mqtt_password))
     {
-      Serial.println("Đã kết nối MQTT");
-      client.subscribe(topicSub); // Đăng ký nhận dữ liệu từ topic
-      Serial.print("Đã đăng ký lắng nghe topic: ");
-      Serial.println(topicSub);
+      Serial.println("MQTT connected");
+      client.subscribe(MQTT_TOPIC_V10);
+      client.subscribe(MQTT_TOPIC_V11);
+      client.subscribe(MQTT_TOPIC_V12);
+      client.subscribe(MQTT_TOPIC_V14);
     }
     else
     {
-      Serial.print("Kết nối thất bại, mã lỗi: ");
-      Serial.println(client.state());
-      delay(5000); // Đợi 5 giây trước khi thử lại
+      Serial.printf("Failed, rc=%d. Retrying in 5s...\n", client.state());
+      delay(5000);
     }
   }
 }

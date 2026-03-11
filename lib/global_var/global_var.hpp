@@ -3,67 +3,102 @@
 
 #include <Arduino.h>
 #include "Wire.h"
-// #include "control.hpp"
-// #include "display.hpp"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-// GPIO configuration
-#define BUZZER_PIN 25      //  BUZZER_PIN
-#define soilMoisturePin 32 // cảm biến đất: P0
-#define light 33           // cảm biến ánh sáng: P1
-#define pump 19            // P14
-#define fan 27             // P2
-#define PIN_NEO_PIXEL 26   // P10
+// ============ GPIO Configuration ============
+#define BUZZER_PIN 25        // Buzzer
+#define soilMoisturePin 32   // Soil moisture sensor
+#define light 33             // Light sensor
+#define pump 19              // Pump
+#define FAN_PIN 27           // Fan
+#define PIN_NEO_PIXEL 26     // NeoPixel LED
 #define NUM_PIXELS 4
+#define PIR_PIN 23           // PIR motion sensor (adjust to your board)
+#define IR_RECV_PIN 15       // IR receiver pin (adjust to your board)
+#define SERVO_PIN 4          // Servo motor pin (adjust to your board)
 
-// ID setup
+// ============ ID Setup ============
 #define ID_area_send 2
 #define ID_area_recv 2
 
-    // software timer configuration
+// ============ MQTT V-Channel Topics ============
+#define MQTT_TOPIC_V1   "yolohome/V1"
+#define MQTT_TOPIC_V2   "yolohome/V2"
+#define MQTT_TOPIC_V3   "yolohome/V3"
+#define MQTT_TOPIC_V10  "yolohome/V10"
+#define MQTT_TOPIC_V11  "yolohome/V11"
+#define MQTT_TOPIC_V12  "yolohome/V12"
+#define MQTT_TOPIC_V13  "yolohome/V13"
+#define MQTT_TOPIC_V14  "yolohome/V14"
+
+// ============ Timer Periods (ms) ============
+#define PERIOD_100MS  100
+#define PERIOD_1S     1000
+#define PERIOD_10S    10000
+#define PERIOD_30S    30000
+
+// ============ Software Timer ============
     void millis_update(void);
     extern unsigned long millis_present;
-#define priod_receiver_data 1000
+    extern unsigned long lastTime_100ms;
+    extern unsigned long lastTime_1s;
+    extern unsigned long lastTime_10s;
+    extern unsigned long lastTime_30s;
 
-    // variable receiver data
+// ============ Device Struct ============
     struct deviceName
     {
         String name;
         bool active;
         int value;
     };
-
-    // variable receiver data
     extern deviceName Fan1;
     extern deviceName Pump1;
     extern deviceName Led1;
 
-    extern deviceName Fan2;
-    extern deviceName Pump2;
-    extern deviceName Led2;
-
-    extern bool State_FSM;
-    /// Configuration MQTT Server and Wifi Connection
-    extern const char *ssid;
-    extern const char *password;
-    extern const char *mqtt_server;
-    extern const int  mqtt_port;
-    extern const char *mqtt_username;
-    extern const char *mqtt_password;
-    // const char* topicSub = "0rm10p/read/Mario@M7";  // Topic nhận dữ liệu
-    extern const char *topicSub; // Topic nhận dữ liệu
-    extern const char *topicPub; // Topic gửi dữ liệu
-
-    // biến từ cảm biến
+// ============ Sensor Variables ============
     extern int Value_SoilMoisture;
     extern int Value_Light;
     extern float Value_Temperature;
     extern float Value_Humidity;
+    extern bool pirDetected;
 
+// ============ WiFi & MQTT Config ============
+    extern const char *ssid;
+    extern const char *password;
+    extern const char *mqtt_server;
+    extern const int mqtt_port;
+    extern const char *mqtt_username;
+    extern const char *mqtt_password;
+
+// ============ MQTT Control Variables ============
+    extern bool mqttLedState;
+    extern uint8_t mqttLedR, mqttLedG, mqttLedB;
+    extern int mqttFanSpeed;
+
+// ============ Password FSM ============
+#define PASSWORD_STATE_CHECK  0
+#define PASSWORD_STATE_CHANGE 1
+#define DOOR_OPEN_DURATION    2000
+    extern int passwordStatus;
+    extern String adminPassword;
+    extern String inputPass;
+
+    enum DoorState { DOOR_CLOSED, DOOR_OPENING, DOOR_CLOSING };
+    extern DoorState doorState;
+    extern unsigned long doorOpenTime;
+
+// ============ Display ============
+    extern bool colonVisible;
+
+// ============ FaceAI ============
+    extern String faceAIResult;
+
+// ============ Pin Setup ============
     void pinSetup(void);
 
 #ifdef __cplusplus
