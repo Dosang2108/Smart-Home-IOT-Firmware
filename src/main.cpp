@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <global_var.hpp>
-#include <music_dec.hpp>
 #include <MQTT.hpp>
 #include <FSM_SETTING.hpp>
 #include <display.hpp>
@@ -11,9 +10,6 @@
 void setup()
 {
   Serial.begin(115200);
-
-  // Startup melody
-  play_music(BUZZER_PIN);
 
   // Initialize pins
   pinSetup();
@@ -62,7 +58,7 @@ void setup()
     delay(800);
   }
 
-  // Show "OK" on LCD (per P2)
+  // Show "OK" on LCD
   lcd.setCursor(0, 0);
   lcd.print("System OK");
   delay(1000);
@@ -89,6 +85,7 @@ void loop()
     handleIRRemote();     // T7: Check IR remote every 100ms
     handlePIRControl();   // T8: Auto LED from PIR
     handleDoorServo();    // T9: Servo timing (open 2s, close, detach)
+    checkFSMTimeout();    // Kiểm tra hủy thao tác nhập pass nếu để quá lâu
   }
 
   // === 30s tasks: Sensor read + MQTT publish (T1, T2) ===
@@ -97,5 +94,15 @@ void loop()
     lastTime_30s = millis_present;
     valueSensor();        // T1: Read sensors every 30s
     publishSensorData();  // T2: Send to MQTT (V1, V2, V3)
+    
+    // Auto pump logic
+    if (Value_SoilMoisture < 30) {
+      Serial.println("Dat kho! Dang bat may bom tu dong...");
+      pump_on();
+      publishFeedback("Tu dong tuoi cay (Dat kho)");
+      
+      delay(3000); // Bơm chạy 3 giây
+      pump_off();
+    }
   }
 }

@@ -35,14 +35,18 @@ void readDHT20()
 
 void readSoilMoisture()
 {
-  int soilMoistureValue = analogRead(soilMoisturePin);
-  Value_SoilMoisture = soilMoistureValue * 100 / 4095;
+  int raw = analogRead(soilMoisturePin);
+  // Quy đổi: 3500 = Khô (0%), 1200 = Ướt đẫm (100%)
+  Value_SoilMoisture = map(raw, 3500, 1200, 0, 100);
+  Value_SoilMoisture = constrain(Value_SoilMoisture, 0, 100); // Chặn không cho vượt quá 100% hoặc bị âm
 }
 
 void readLight()
 {
-  int lightValue = analogRead(light);
-  Value_Light = lightValue * 100 / 4095;
+  int raw = analogRead(light);
+  // Quy đổi: 4095 = Tối (0%), 500 = Sáng chói (100%)
+  Value_Light = map(raw, 4095, 500, 0, 100);
+  Value_Light = constrain(Value_Light, 0, 100);
 }
 
 void readPIR()

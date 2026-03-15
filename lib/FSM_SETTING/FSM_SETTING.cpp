@@ -1,10 +1,15 @@
 #include <FSM_SETTING.hpp>
 #include <control.hpp>
-#include <music_dec.hpp>
 #include <MQTT.hpp>
+#include <Preferences.h> // Thư viện đọc/ghi bộ nhớ Flash
 
 static IRrecv irrecv(IR_RECV_PIN);
 static decode_results irResults;
+static Preferences preferences; // Đối tượng thao tác Flash
+
+// Biến quản lý thời gian Timeout
+static unsigned long lastKeyPressTime = 0;
+static const unsigned long FSM_TIMEOUT_MS = 10000; // 10 giây
 
 // ============ IR Remote Button Code Mapping ============
 #define IR_DEBUG
@@ -19,7 +24,8 @@ static decode_results irResults;
 #define IR_CODE_7  0x42
 #define IR_CODE_8  0x52
 #define IR_CODE_9  0x4A
-#define IR_CODE_F  0x09  // OK/Enter button as "F"
+#define IR_CODE_F  0x09  // Nút OK/Enter
+#define IR_CODE_C  0x46  // Nút Xóa lùi
 
 static char mapIRCode(uint64_t value)
 {
@@ -35,7 +41,8 @@ static char mapIRCode(uint64_t value)
     case IR_CODE_7: return '7';
     case IR_CODE_8: return '8';
     case IR_CODE_9: return '9';
-    case IR_CODE_F: return 'F';
+    case IR_CODE_F: return 'F'; // Enter
+    case IR_CODE_C: return 'C'; // Clear / Backspace
     default: return '\0';
   }
 }
@@ -44,6 +51,11 @@ void initIR()
 {
   irrecv.enableIRIn();
   Serial.println("IR receiver initialized");
+
+  // Khởi tạo và nạp mật khẩu đã lưu từ trước (Chống cúp điện)
+  preferences.begin("door-lock", false); 
+  adminPassword = preferences.getString("adminPass", "123");
+  Serial.printf("Loaded Password from Flash: %s\n", adminPassword.c_str());
 }
 
 void handleIRRemote()
@@ -57,7 +69,8 @@ void handleIRRemote()
     char key = mapIRCode(irResults.value);
     if (key != '\0') {
       Serial.printf("IR Key: %c\n", key);
-      play_beep(BUZZER_PIN);
+      
+      lastKeyPressTime = millis_present; // Reset bộ đếm timeout
       processPasswordFSM(key);
     }
     irrecv.resume();
@@ -66,36 +79,42 @@ void handleIRRemote()
 
 void processPasswordFSM(char key)
 {
+  // --- TÍNH NĂNG XÓA LÙI KÝ TỰ ---
+  if (key == 'C') {
+    if (inputPass.length() > 0) {
+      inputPass.remove(inputPass.length() - 1);
+      Serial.printf("Deleted 1 char. Current input: %s\n", inputPass.c_str());
+    }
+    return;
+  }
+
   if (passwordStatus == PASSWORD_STATE_CHECK) {
     // State 0: Check password mode
     if (key >= '0' && key <= '9') {
-      inputPass += key;
-      Serial.printf("PASS input: %s\n", inputPass.c_str());
+      if (inputPass.length() < 10) { 
+        inputPass += key;
+        Serial.printf("PASS input: %s\n", inputPass.c_str());
+      }
     }
     else if (key == 'F') {
-      // Check for double-password entry (e.g., "123123") -> switch to change mode
       String doublePass = adminPassword + adminPassword;
       if (inputPass == doublePass) {
         passwordStatus = PASSWORD_STATE_CHANGE;
         inputPass = "";
         Serial.println("FSM -> Password CHANGE mode");
         publishFeedback("Che do doi mat ma");
-        play_success_sound(BUZZER_PIN);
       }
-      // Check normal password
       else if (inputPass == adminPassword) {
         Serial.println("Password CORRECT -> Opening door");
         publishFeedback("Mat ma dung - Mo cua");
         servo_open();
         doorState = DOOR_OPENING;
-        doorOpenTime = millis();
-        play_success_sound(BUZZER_PIN);
+        doorOpenTime = millis_present; 
         inputPass = "";
       }
       else {
         Serial.println("Password WRONG");
         publishFeedback("Sai mat ma!");
-        play_error_sound(BUZZER_PIN);
         inputPass = "";
       }
     }
@@ -103,19 +122,40 @@ void processPasswordFSM(char key)
   else if (passwordStatus == PASSWORD_STATE_CHANGE) {
     // State 1: Change password mode
     if (key >= '0' && key <= '9') {
-      inputPass += key;
-      Serial.printf("New PASS input: %s\n", inputPass.c_str());
+      if (inputPass.length() < 10) { 
+        inputPass += key;
+        Serial.printf("New PASS input: %s\n", inputPass.c_str());
+      }
     }
     else if (key == 'F') {
       if (inputPass.length() > 0) {
         adminPassword = inputPass;
+        
+        // LƯU VÀO Ổ CỨNG FLASH
+        preferences.putString("adminPass", adminPassword); 
+        
         Serial.printf("Password changed to: %s\n", adminPassword.c_str());
-        publishFeedback("Da doi mat ma");
-        play_success_sound(BUZZER_PIN);
+        publishFeedback("Da doi mat ma thanh cong");
       }
       inputPass = "";
       passwordStatus = PASSWORD_STATE_CHECK;
       Serial.println("FSM -> Password CHECK mode");
+    }
+  }
+}
+
+// --- TÍNH NĂNG TỰ ĐỘNG HỦY THAO TÁC NẾU QUÊN (TIMEOUT) ---
+void checkFSMTimeout()
+{
+  if (inputPass.length() > 0 || passwordStatus != PASSWORD_STATE_CHECK) {
+    if (millis_present - lastKeyPressTime > FSM_TIMEOUT_MS) {
+      inputPass = "";
+      passwordStatus = PASSWORD_STATE_CHECK; 
+      
+      Serial.println("FSM Timeout! Resetting to default state.");
+      publishFeedback("Het thoi gian nhap. Da huy thao tac!");
+      
+      lastKeyPressTime = millis_present; 
     }
   }
 }

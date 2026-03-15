@@ -14,7 +14,7 @@ extern "C" {
 void initIR();
 void handleIRRemote();
 void processPasswordFSM(char key);
-
+void checkFSMTimeout(); 
 #ifdef __cplusplus
 }
 #endif

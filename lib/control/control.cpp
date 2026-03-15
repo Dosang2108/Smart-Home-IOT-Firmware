@@ -7,6 +7,11 @@ static uint8_t rgbCycleIndex = 0;
 static unsigned long lastRgbCycleMs = 0;
 static const unsigned long RGB_CYCLE_PERIOD_MS = 2000;
 
+// --- BỔ SUNG: Biến đếm thời gian chống nhấp nháy cho đèn PIR ---
+static unsigned long lastMotionTime = 0;
+static const unsigned long PIR_HOLD_TIME_MS = 5000; // Giữ đèn sáng 5 giây
+// ----------------------------------------------------------------
+
 struct RgbColor {
   uint8_t r;
   uint8_t g;
@@ -123,13 +128,22 @@ void led_off()
 // ============ PIR Auto Light ============
 void handlePIRControl()
 {
+  // Đang điều khiển bằng tay qua MQTT/App thì bỏ qua tự động
   if (mqttLedState) {
     return;
   }
+
+  // Nếu phát hiện chuyển động
   if (pirDetected) {
     ledwhite_on();
-  } else {
-    ledwhite_off();
+    lastMotionTime = millis_present; // Cập nhật lại mốc thời gian liên tục
+  } 
+  // Nếu không phát hiện chuyển động
+  else {
+    // Chỉ tắt đèn khi ĐÃ QUÁ 5 GIÂY kể từ lần cuối cùng thấy người
+    if (millis_present - lastMotionTime >= PIR_HOLD_TIME_MS) {
+      ledwhite_off();
+    }
   }
 }
 

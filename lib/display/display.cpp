@@ -59,9 +59,12 @@ static void displayPirPage()
 
 void initLCD()
 {
-  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  
   Serial.println("Initializing LCD...");
-  lcd.begin(0, 0);
+  
+  // SỬA LỖI: Sử dụng lcd.init() thay vì lcd.begin(0,0)
+  lcd.init(); 
+  
   lcd.backlight();
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -135,13 +138,10 @@ void lcdDisplaySensors()
   }
 }
 
-// Row 1: T:xx.x H:xx L:xxx
 void lcdDisplayRow1()
 {
   displayTempHumidityPage();
 }
-
-// Row 2: DD/MM/YYYY HH:MM
 void lcdDisplayRow2()
 {
   displayAnalogPage();

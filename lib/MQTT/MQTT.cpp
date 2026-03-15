@@ -131,6 +131,10 @@ void publishFeedback(const char* message)
 void mqtt_callback(char* topic, byte* payload, unsigned int length)
 {
   if (payload == nullptr || length == 0) return;
+  if (length > 256) {
+    Serial.println("Lỗi: Payload MQTT quá lớn, bo qua de bao ve he thong!");
+    return;
+  }
 
   char message[length + 1];
   memcpy(message, payload, length);
@@ -242,5 +246,3 @@ bool isMqttConnected(void)
 {
   return client.connected();
 }
-
-

@@ -20,8 +20,8 @@ extern "C"
 #define PIR_PIN GPIO_NUM_7          // PIR motion sensor (adjust to your board)
 #define IR_RECV_PIN GPIO_NUM_9       // IR receiver pin (adjust to your board)
 #define SERVO_PIN 4          // Servo motor pin (adjust to your board)
-#define I2C_SCL_PIN GPIO_NUM_11       // I2C SCL (GPIO11)
-#define I2C_SDA_PIN GPIO_NUM_12       // I2C SDA (GPIO12)
+#define I2C_SCL_PIN GPIO_NUM_12       // I2C SCL (GPIO12)
+#define I2C_SDA_PIN GPIO_NUM_11       // I2C SDA (GPIO11)
 #define LCD_COLUMNS 16
 #define LCD_ROWS 2
 
