@@ -13,7 +13,10 @@ extern "C"
 
 extern LiquidCrystal_I2C lcd;
 
+void initLCD();
 void initNTP();
+void scanI2CBus();
+void lcdDisplaySensors();
 void lcdDisplayRow1();
 void lcdDisplayRow2();
 void lcdUpdateColon();

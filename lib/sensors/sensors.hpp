@@ -12,6 +12,7 @@ extern "C"
 
 extern DHT20 DHT;
 
+bool initDHT20();
 void readDHT20();
 void readSoilMoisture();
 void readLight();

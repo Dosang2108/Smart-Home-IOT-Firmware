@@ -2,6 +2,18 @@
 
 DHT20 DHT;
 
+bool initDHT20()
+{
+  if (!DHT.begin()) {
+    Serial.println("DHT20 init failed");
+    dhtDataValid = false;
+    return false;
+  }
+  Serial.println("DHT20 init success");
+  dhtDataValid = true;
+  return true;
+}
+
 void valueSensor()
 {
   readDHT20();
@@ -11,9 +23,14 @@ void valueSensor()
 
 void readDHT20()
 {
-  DHT.read();
-  Value_Humidity = round(DHT.getHumidity() * 100) / 100.0;
-  Value_Temperature = round(DHT.getTemperature() * 100) / 100.0;
+  if (DHT.read() == DHT20_OK) {
+    Value_Humidity = round(DHT.getHumidity() * 100) / 100.0;
+    Value_Temperature = round(DHT.getTemperature() * 100) / 100.0;
+    dhtDataValid = true;
+  } else {
+    dhtDataValid = false;
+    Serial.println("DHT20 read failed");
+  }
 }
 
 void readSoilMoisture()

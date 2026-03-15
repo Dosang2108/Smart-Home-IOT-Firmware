@@ -19,6 +19,7 @@ void publishSensorData(void);
 void publishFeedback(const char* message);
 void mqtt_callback(char* topic, byte* payload, unsigned int length);
 void reconnect(void);
+bool isMqttConnected(void);
 
 #ifdef __cplusplus
 }

@@ -30,6 +30,7 @@ int Value_SoilMoisture = 0;
 int Value_Light = 0;
 float Value_Temperature = 0.0;
 float Value_Humidity = 0.0;
+bool dhtDataValid = false;
 bool pirDetected = false;
 
 // MQTT Control Variables
@@ -57,6 +58,7 @@ void pinSetup(void)
     pinMode(pump, OUTPUT);
     pinMode(FAN_PIN, OUTPUT);
     pinMode(soilMoisturePin, INPUT);
+    pinMode(light, INPUT);
     pinMode(PIR_PIN, INPUT);
-    Wire1.begin(21, 22);
+    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 }

@@ -2,6 +2,29 @@
 
 Adafruit_NeoPixel NeoPixel(NUM_PIXELS, PIN_NEO_PIXEL, NEO_GRB + NEO_KHZ800);
 static Servo doorServo;
+static bool rgbAutoCycle = false;
+static uint8_t rgbCycleIndex = 0;
+static unsigned long lastRgbCycleMs = 0;
+static const unsigned long RGB_CYCLE_PERIOD_MS = 2000;
+
+struct RgbColor {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+};
+
+static const RgbColor kRgbCycleColors[] = {
+  {255, 0, 0},
+  {255, 127, 0},
+  {255, 255, 0},
+  {0, 255, 0},
+  {0, 255, 255},
+  {0, 0, 255},
+  {148, 0, 211},
+  {255, 255, 255}
+};
+
+static const uint8_t kRgbCycleColorCount = sizeof(kRgbCycleColors) / sizeof(kRgbCycleColors[0]);
 
 // ============ Pump ============
 void pump_on()
@@ -45,6 +68,29 @@ void led_rgb_off()
   NeoPixel.show();
 }
 
+void led_rgb_set_auto(bool enabled)
+{
+  rgbAutoCycle = enabled;
+  if (enabled) {
+    rgbCycleIndex = 0;
+    lastRgbCycleMs = 0;
+  }
+}
+
+void led_rgb_tick(void)
+{
+  if (!rgbAutoCycle || !mqttLedState) {
+    return;
+  }
+  if (millis_present - lastRgbCycleMs < RGB_CYCLE_PERIOD_MS) {
+    return;
+  }
+  lastRgbCycleMs = millis_present;
+  const RgbColor color = kRgbCycleColors[rgbCycleIndex];
+  led_rgb_set(color.r, color.g, color.b);
+  rgbCycleIndex = (rgbCycleIndex + 1) % kRgbCycleColorCount;
+}
+
 void ledwhite_on()
 {
   for (int i = 1; i < NUM_PIXELS; i++)
@@ -61,25 +107,25 @@ void ledwhite_off()
 
 void ledred_on()
 {
-  NeoPixel.setPixelColor(0, NeoPixel.Color(255, 0, 0));
-  NeoPixel.show();
+  led_rgb_set(255, 0, 0);
 }
 
 void ledgreen_on()
 {
-  NeoPixel.setPixelColor(0, NeoPixel.Color(0, 255, 0));
-  NeoPixel.show();
+  led_rgb_set(0, 255, 0);
 }
 
 void led_off()
 {
-  NeoPixel.setPixelColor(0, NeoPixel.Color(0, 0, 0));
-  NeoPixel.show();
+  led_rgb_off();
 }
 
 // ============ PIR Auto Light ============
 void handlePIRControl()
 {
+  if (mqttLedState) {
+    return;
+  }
   if (pirDetected) {
     ledwhite_on();
   } else {
