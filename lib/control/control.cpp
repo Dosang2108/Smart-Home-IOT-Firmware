@@ -32,21 +32,21 @@ static const RgbColor kRgbCycleColors[] = {
 static const uint8_t kRgbCycleColorCount = sizeof(kRgbCycleColors) / sizeof(kRgbCycleColors[0]);
 
 // ============ Pump ============
-void pump_on()
-{
-  analogWrite(pump, 255);
-}
+// void pump_on()
+// {
+//   analogWrite(pump, 255);
+// }
 
-void pump_off()
-{
-  analogWrite(pump, 0);
-}
+// void pump_off()
+// {
+//   analogWrite(pump, 0);
+// }
 
-void pump_control_manual(int pumpspeed)
-{
-  pumpspeed = map(pumpspeed, 0, 100, 0, 255);
-  analogWrite(pump, pumpspeed);
-}
+// void pump_control_manual(int pumpspeed)
+// {
+//   pumpspeed = map(pumpspeed, 0, 100, 0, 255);
+//   analogWrite(pump, pumpspeed);
+// }
 
 // ============ Fan ============
 void fan_set_speed(int speed)

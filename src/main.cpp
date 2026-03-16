@@ -94,15 +94,5 @@ void loop()
     lastTime_30s = millis_present;
     valueSensor();        // T1: Read sensors every 30s
     publishSensorData();  // T2: Send to MQTT (V1, V2, V3)
-    
-    // Auto pump logic
-    if (Value_SoilMoisture < 30) {
-      Serial.println("Dat kho! Dang bat may bom tu dong...");
-      pump_on();
-      publishFeedback("Tu dong tuoi cay (Dat kho)");
-      
-      delay(3000); // Bơm chạy 3 giây
-      pump_off();
-    }
   }
 }

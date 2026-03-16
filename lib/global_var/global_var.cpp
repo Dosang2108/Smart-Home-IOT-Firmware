@@ -22,11 +22,10 @@ const char *mqtt_password = "Iot_home2026@";
 
 // Device instances
 deviceName Fan1 = {"Fan1", false, 0};
-deviceName Pump1 = {"Pump1", false, 0};
 deviceName Led1 = {"Led1", false, 0};
 
 // Sensor values
-int Value_SoilMoisture = 0;
+// int Value_SoilMoisture = 0;
 int Value_Light = 0;
 float Value_Temperature = 0.0;
 float Value_Humidity = 0.0;
@@ -55,9 +54,8 @@ String faceAIResult = "";
 
 void pinSetup(void)
 {
-    pinMode(pump, OUTPUT);
     pinMode(FAN_PIN, OUTPUT);
-    pinMode(soilMoisturePin, INPUT);
+    // pinMode(soilMoisturePin, INPUT);
     pinMode(light, INPUT);
     pinMode(PIR_PIN, INPUT);
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);

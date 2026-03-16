@@ -17,8 +17,9 @@ bool initDHT20()
 void valueSensor()
 {
   readDHT20();
-  readSoilMoisture();
   readLight();
+  readPIR();
+  
 }
 
 void readDHT20()
@@ -33,13 +34,13 @@ void readDHT20()
   }
 }
 
-void readSoilMoisture()
-{
-  int raw = analogRead(soilMoisturePin);
-  // Quy đổi: 3500 = Khô (0%), 1200 = Ướt đẫm (100%)
-  Value_SoilMoisture = map(raw, 3500, 1200, 0, 100);
-  Value_SoilMoisture = constrain(Value_SoilMoisture, 0, 100); // Chặn không cho vượt quá 100% hoặc bị âm
-}
+// void readSoilMoisture()
+// {
+//   int raw = analogRead(soilMoisturePin);
+//   // Quy đổi: 3500 = Khô (0%), 1200 = Ướt đẫm (100%)
+//   Value_SoilMoisture = map(raw, 3500, 1200, 0, 100);
+//   Value_SoilMoisture = constrain(Value_SoilMoisture, 0, 100); // Chặn không cho vượt quá 100% hoặc bị âm
+// }
 
 void readLight()
 {

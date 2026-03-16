@@ -10,10 +10,9 @@ extern "C"
 #endif
 
 // ============ GPIO Configuration ============
-#define BUZZER_PIN 25        // Buzzer
-#define soilMoisturePin 1    // A0 (GPIO1)
+
+// #define soilMoisturePin 1    // A0 (GPIO1)
 #define light 2              // A1 (GPIO2)
-#define pump 8               // Relay/Pump pin (GPIO8)
 #define FAN_PIN 10           // Fan pin (GPIO10)
 #define PIN_NEO_PIXEL 6      // RGB NeoPixel pin (GPIO6)
 #define NUM_PIXELS 4
@@ -65,7 +64,7 @@ extern "C"
     extern deviceName Led1;
 
 // ============ Sensor Variables ============
-    extern int Value_SoilMoisture;
+    // extern int Value_SoilMoisture;
     extern int Value_Light;
     extern float Value_Temperature;
     extern float Value_Humidity;

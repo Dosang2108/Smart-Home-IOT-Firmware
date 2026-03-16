@@ -39,12 +39,11 @@ static void displayAnalogPage()
   char line2[32];
 
   snprintf(line1, sizeof(line1), "Light: %d %%", Value_Light);
-  snprintf(line2, sizeof(line2), "Soil : %d %%", Value_SoilMoisture);
+  snprintf(line2, sizeof(line2), "                "); 
 
   printPaddedLine(0, line1);
   printPaddedLine(1, line2);
 }
-
 static void displayPirPage()
 {
   char line1[32];

@@ -17,7 +17,7 @@ static void handleApiSensors()
   doc["temperature"] = Value_Temperature;
   doc["humidity"] = Value_Humidity;
   doc["light"] = Value_Light;
-  doc["soilMoisture"] = Value_SoilMoisture;
+  // doc["soilMoisture"] = Value_SoilMoisture;
   doc["pirDetected"] = pirDetected;
   doc["dhtValid"] = dhtDataValid;
   doc["mqttConnected"] = isMqttConnected();
@@ -76,16 +76,6 @@ static void handleFanSet()
   dashboardServer.send(200, "text/plain", "Fan set");
 }
 
-static void handlePumpSet()
-{
-  if (dashboardServer.hasArg("on")) {
-    int on = dashboardServer.arg("on").toInt();
-    if (on) pump_on();
-    else pump_off();
-  }
-  dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
-  dashboardServer.send(200, "text/plain", "Pump set");
-}
 
 static void handleDashboardRoot()
 {
@@ -100,7 +90,6 @@ static void handleDashboardRoot()
   "<p>Temp: <span id='t'>--</span> &deg;C</p>"
   "<p>Hum: <span id='h'>--</span> %</p>"
   "<p>Light: <span id='l'>--</span> %</p>"
-  "<p>Soil: <span id='s'>--</span> %</p>"
   "<p>Motion: <span id='p'>--</span></p></div>"
   "<div class='card'><h3>Controls</h3>"
   "<button onclick='setRgb(255,0,0)'>Red</button>"
@@ -111,16 +100,13 @@ static void handleDashboardRoot()
   "Fan: <button onclick='setFan(0)'>Off</button>"
   "<button onclick='setFan(50)'>50%</button>"
   "<button onclick='setFan(100)'>100%</button>"
-  " (Current: <span id='fanVal'>0</span>%)<br><br>"
-  "Pump: <button onclick='setPump(1)'>On</button>"
-  "<button onclick='setPump(0)'>Off</button></div>"
+  " (Current: <span id='fanVal'>0</span>%)<br><br></div>"
   "<script>"
   "function refreshSensors(){"
   "fetch('/api/sensors').then(r=>r.json()).then(d=>{"
   "document.getElementById('t').textContent=d.temperature;"
   "document.getElementById('h').textContent=d.humidity;"
   "document.getElementById('l').textContent=d.light;"
-  "document.getElementById('s').textContent=d.soilMoisture;"
   "document.getElementById('p').textContent=d.pirDetected?'Yes':'No';"
   "document.getElementById('fanVal').textContent=d.fanSpeed;"
   "});}"
@@ -128,7 +114,6 @@ static void handleDashboardRoot()
   "function rgbOff(){fetch('/api/rgb/off');}"
   "function rgbAuto(){fetch('/api/rgb/auto');}"
   "function setFan(v){fetch('/api/fan?speed='+v);}"
-  "function setPump(v){fetch('/api/pump?on='+v);}"
   "setInterval(refreshSensors,2000);refreshSensors();"
   "</script></body></html>");
 
@@ -151,7 +136,6 @@ void initSensorDashboard()
   dashboardServer.on("/api/rgb/off", HTTP_GET, handleRgbOff);
   dashboardServer.on("/api/rgb/auto", HTTP_GET, handleRgbAuto);
   dashboardServer.on("/api/fan", HTTP_GET, handleFanSet);
-  dashboardServer.on("/api/pump", HTTP_GET, handlePumpSet);
 
   dashboardServer.begin();
   dashboardStarted = true;
