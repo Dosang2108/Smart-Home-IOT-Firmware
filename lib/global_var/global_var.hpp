@@ -12,13 +12,13 @@ extern "C"
 // ============ GPIO Configuration ============
 
 // #define soilMoisturePin 1    // A0 (GPIO1)
-#define light 2              // A1 (GPIO2)
+#define light 1              // A1 (GPIO2)
 #define FAN_PIN 10           // Fan pin (GPIO10)
 #define PIN_NEO_PIXEL 18      // RGB NeoPixel pin (GPIO6)
 #define NUM_PIXELS 4
-#define PIR_PIN GPIO_NUM_7          // PIR motion sensor (adjust to your board)
-#define IR_RECV_PIN GPIO_NUM_9       // IR receiver pin (adjust to your board)
-#define SERVO_PIN 4          // Servo motor pin (adjust to your board)
+#define PIR_PIN GPIO_NUM_7          // PIR motion sensor
+#define IR_RECV_PIN GPIO_NUM_9       // IR receiver pin 
+#define SERVO_PIN 4          // Servo motor pin 
 #define I2C_SCL_PIN GPIO_NUM_12       // I2C SCL (GPIO12)
 #define I2C_SDA_PIN GPIO_NUM_11       // I2C SDA (GPIO11)
 #define LCD_COLUMNS 16
