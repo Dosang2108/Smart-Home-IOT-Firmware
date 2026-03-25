@@ -84,7 +84,6 @@ void handleIRRemote()
 }
 void processPasswordFSM(char key)
 {
-  // --- TÍNH NĂNG XÓA LÙI KÝ TỰ ---
   if (key == 'C') {
     if (inputPass.length() > 0) {
       inputPass.remove(inputPass.length() - 1);
@@ -96,7 +95,7 @@ void processPasswordFSM(char key)
   if (passwordStatus == PASSWORD_STATE_CHECK) {
     // State 0: Check password mode
     if (key >= '0' && key <= '9') {
-      if (inputPass.length() < 10) { 
+      if (inputPass.length() < 20) { 
         inputPass += key;
         Serial.printf("PASS input: %s\n", inputPass.c_str());
       }
@@ -107,7 +106,7 @@ void processPasswordFSM(char key)
         passwordStatus = PASSWORD_STATE_CHANGE;
         inputPass = "";
         Serial.println("FSM -> Password CHANGE mode");
-        publishFeedback("Che do doi mat ma");
+        publishFeedback("Che do doi mat ma. Moi nhap pass moi!");
       }
       else if (inputPass == adminPassword) {
         Serial.println("Password CORRECT -> Opening door");
@@ -127,6 +126,7 @@ void processPasswordFSM(char key)
   else if (passwordStatus == PASSWORD_STATE_CHANGE) {
     // State 1: Change password mode
     if (key >= '0' && key <= '9') {
+      // Vẫn giữ nguyên giới hạn 10 ký tự cho việc thiết lập mật khẩu mới
       if (inputPass.length() < 10) { 
         inputPass += key;
         Serial.printf("New PASS input: %s\n", inputPass.c_str());
@@ -135,20 +135,20 @@ void processPasswordFSM(char key)
     else if (key == 'F') {
       if (inputPass.length() > 0) {
         adminPassword = inputPass;
-        
-        // LƯU VÀO Ổ CỨNG FLASH
         preferences.putString("adminPass", adminPassword); 
-        
         Serial.printf("Password changed to: %s\n", adminPassword.c_str());
         publishFeedback("Da doi mat ma thanh cong");
+      } else {
+        // Cải thiện UX: Nếu không nhập gì mà bấm F thì hủy việc đổi pass
+        publishFeedback("Huy doi mat ma");
       }
+      
       inputPass = "";
       passwordStatus = PASSWORD_STATE_CHECK;
       Serial.println("FSM -> Password CHECK mode");
     }
   }
 }
-
 // --- TÍNH NĂNG TỰ ĐỘNG HỦY THAO TÁC NẾU QUÊN (TIMEOUT) ---
 void checkFSMTimeout()
 {

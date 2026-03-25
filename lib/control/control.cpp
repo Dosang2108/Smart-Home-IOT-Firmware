@@ -62,13 +62,17 @@ void fan_control_manual(bool active)
 // ============ LED RGB ============
 void led_rgb_set(uint8_t r, uint8_t g, uint8_t b)
 {
-  NeoPixel.setPixelColor(0, NeoPixel.Color(r, g, b));
+  // Dùng vòng lặp chạy từ 0 đến NUM_PIXELS (tức là 0, 1, 2, 3) để bật tất cả
+  for(int i = 0; i < NUM_PIXELS; i++) {
+    NeoPixel.setPixelColor(i, NeoPixel.Color(r, g, b));
+  }
   NeoPixel.show();
 }
 
 void led_rgb_off()
 {
-  NeoPixel.setPixelColor(0, NeoPixel.Color(0, 0, 0));
+  // NeoPixel có sẵn hàm clear() để tắt toàn bộ đèn cực kỳ tiện lợi
+  NeoPixel.clear(); 
   NeoPixel.show();
 }
 
@@ -91,21 +95,22 @@ void led_rgb_tick(void)
   }
   lastRgbCycleMs = millis_present;
   const RgbColor color = kRgbCycleColors[rgbCycleIndex];
-  led_rgb_set(color.r, color.g, color.b);
+  led_rgb_set(color.r, color.g, color.b); // Hàm này giờ đã bật cả 4 bóng
   rgbCycleIndex = (rgbCycleIndex + 1) % kRgbCycleColorCount;
 }
 
 void ledwhite_on()
 {
-  for (int i = 1; i < NUM_PIXELS; i++)
+  // Sửa i = 1 thành i = 0 để cảm biến PIR bật toàn bộ 4 đèn
+  for (int i = 0; i < NUM_PIXELS; i++) {
     NeoPixel.setPixelColor(i, NeoPixel.Color(255, 255, 255));
+  }
   NeoPixel.show();
 }
 
 void ledwhite_off()
 {
-  for (int i = 1; i < NUM_PIXELS; i++)
-    NeoPixel.setPixelColor(i, NeoPixel.Color(0, 0, 0));
+  NeoPixel.clear();
   NeoPixel.show();
 }
 
@@ -123,7 +128,6 @@ void led_off()
 {
   led_rgb_off();
 }
-
 // ============ PIR Auto Light ============
 void handlePIRControl()
 {
