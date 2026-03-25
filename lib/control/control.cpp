@@ -9,7 +9,7 @@ static const unsigned long RGB_CYCLE_PERIOD_MS = 2000;
 
 static unsigned long lastMotionTime = 0;
 static const unsigned long PIR_HOLD_TIME_MS = 5000; // Giữ đèn sáng 5 giây
-// ----------------------------------------------------------------
+
 
 struct RgbColor {
   uint8_t r;
@@ -59,7 +59,6 @@ void fan_control_manual(bool active)
   analogWrite(FAN_PIN, active ? 255 : 0);
 }
 
-// ============ LED RGB ============
 void led_rgb_set(uint8_t r, uint8_t g, uint8_t b)
 {
   // Dùng vòng lặp chạy từ 0 đến NUM_PIXELS (tức là 0, 1, 2, 3) để bật tất cả
@@ -71,7 +70,6 @@ void led_rgb_set(uint8_t r, uint8_t g, uint8_t b)
 
 void led_rgb_off()
 {
-  // NeoPixel có sẵn hàm clear() để tắt toàn bộ đèn cực kỳ tiện lợi
   NeoPixel.clear(); 
   NeoPixel.show();
 }

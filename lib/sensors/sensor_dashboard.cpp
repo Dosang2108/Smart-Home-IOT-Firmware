@@ -187,11 +187,6 @@ const char index_html[] PROGMEM = R"rawliteral(
 </body>
 </html>
 )rawliteral";
-
-// =======================================================================
-// CÁC HÀM XỬ LÝ API (Giữ nguyên, không cần thay đổi)
-// =======================================================================
-
 static void handleApiSensors()
 {
   JsonDocument doc;
