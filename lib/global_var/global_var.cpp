@@ -13,8 +13,8 @@ void millis_update(void)
 }
 
 // WiFi & MQTT Configuration
-const char *ssid = "ACLAB";
-const char *password = "ACLAB2023";
+const char *ssid = "SANG";
+const char *password = "21082005";
 const char *mqtt_server = "073d03b99541400d98714c4829a277a6.s1.eu.hivemq.cloud";
 const int mqtt_port = 8883;
 const char *mqtt_username = "IotHome2026";

@@ -10,6 +10,9 @@
 static WebServer dashboardServer(80);
 static bool dashboardStarted = false;
 
+// =======================================================================
+// LƯU TRỮ HTML/CSS/JS VÀO FLASH (PROGMEM)
+// =======================================================================
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="vi">
@@ -33,7 +36,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 
     /* Controls */
     .control-group { margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px;}
-    .control-actions { display: flex; gap: 5px; margin-top: 10px; }
+    .control-actions { display: flex; gap: 5px; margin-top: 10px; width: 100%;}
     button { padding: 10px 15px; border: none; border-radius: 6px; background: #007bff; color: white; font-weight: bold; cursor: pointer; transition: 0.3s; flex: 1; text-align: center;}
     button:hover { background: #0056b3; }
     button.btn-danger { background: #dc3545; }
@@ -77,10 +80,10 @@ const char index_html[] PROGMEM = R"rawliteral(
           <label><b>💡 Đèn RGB:</b> Chọn màu -> </label>
           <input type="color" id="rgbColor" value="#ff0000" onchange="pickColor(this.value)">
         </div>
-        <div class="control-actions" style="width: 100%;">
+        <div class="control-actions">
           <button class="btn-success" onclick="rgbOn()">Bật Đèn</button>
           <button class="btn-danger" onclick="rgbOff()">Tắt Đèn</button>
-          <button onclick="rgbAuto()">Chế độ Auto</button>
+          <button onclick="rgbAuto()">Auto</button>
         </div>
       </div>
 
@@ -89,7 +92,7 @@ const char index_html[] PROGMEM = R"rawliteral(
           <label><b>❄️ Quạt gió:</b> Tốc độ <span id="fanVal" style="font-weight:bold; color:#007bff">0</span>%</label>
           <input type="range" id="fanSlider" min="0" max="100" value="0" onchange="setFan(this.value)">
         </div>
-        <div class="control-actions" style="width: 100%;">
+        <div class="control-actions">
           <button class="btn-success" onclick="fanOn()">Bật Quạt (100%)</button>
           <button class="btn-danger" onclick="fanOff()">Tắt Quạt (0%)</button>
         </div>
@@ -114,17 +117,18 @@ const char index_html[] PROGMEM = R"rawliteral(
       maintainAspectRatio: false
     };
 
-    function createChart(ctxId, color) {
+    // SỬA LỖI Ở ĐÂY: Truyền trực tiếp mảng dữ liệu (dataArray) vào datasets
+    function createChart(ctxId, color, dataArray) {
       return new Chart(document.getElementById(ctxId).getContext('2d'), {
         type: 'line',
-        data: { labels: timeData, datasets: [{ data: [], borderColor: color, borderWidth: 2, tension: 0.3, pointRadius: 0 }] },
+        data: { labels: timeData, datasets: [{ data: dataArray, borderColor: color, borderWidth: 2, tension: 0.3, pointRadius: 0 }] },
         options: chartOpt
       });
     }
 
-    const tChart = createChart('tChart', '#dc3545');
-    const hChart = createChart('hChart', '#0d6efd');
-    const lChart = createChart('lChart', '#ffc107');
+    const tChart = createChart('tChart', '#dc3545', tempData);
+    const hChart = createChart('hChart', '#0d6efd', humData);
+    const lChart = createChart('lChart', '#ffc107', lightData);
 
     // --- HÀM CẬP NHẬT DỮ LIỆU ---
     function refreshSensors() {
@@ -138,7 +142,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         if(d.pirDetected) { p.innerHTML = '🚨 <span style="color:red">Phát hiện Chuyển động!</span>'; } 
         else { p.innerHTML = '✅ <span style="color:#28a745">An toàn</span>'; }
         
-        // Không đè giá trị slider nếu user đang kéo
+        // Cập nhật Slider Quạt (nếu người dùng không đang chạm vào nó)
         if (document.activeElement !== document.getElementById('fanSlider')) {
           document.getElementById('fanVal').textContent = d.fanSpeed;
           document.getElementById('fanSlider').value = d.fanSpeed;
@@ -146,7 +150,9 @@ const char index_html[] PROGMEM = R"rawliteral(
 
         // Cập nhật Biểu đồ
         let now = new Date();
-        timeData.push(now.getSeconds());
+        let timeStr = now.getHours() + ":" + now.getMinutes() + ":" + now.getSeconds();
+        
+        timeData.push(timeStr);
         tempData.push(d.temperature);
         humData.push(d.humidity);
         lightData.push(d.light);
@@ -160,27 +166,21 @@ const char index_html[] PROGMEM = R"rawliteral(
       }).catch(e => console.log("Lỗi tải dữ liệu", e));
     }
 
-    // --- CÁC HÀM ĐIỀU KHIỂN ĐÈN ---
+    // --- CÁC HÀM ĐIỀU KHIỂN ---
     function pickColor(hex) {
       let r = parseInt(hex.slice(1, 3), 16); let g = parseInt(hex.slice(3, 5), 16); let b = parseInt(hex.slice(5, 7), 16);
       fetch(`/api/rgb?r=${r}&g=${g}&b=${b}`);
     }
-    function rgbOn() { pickColor(document.getElementById('rgbColor').value); } // Lấy màu hiện tại trên bảng màu để bật
+    function rgbOn() { pickColor(document.getElementById('rgbColor').value); }
     function rgbOff() { fetch('/api/rgb/off'); }
     function rgbAuto() { fetch('/api/rgb/auto'); }
 
-    // --- CÁC HÀM ĐIỀU KHIỂN QUẠT ---
-    function setFan(v) { 
-      fetch(`/api/fan?speed=${v}`); 
-      document.getElementById('fanVal').textContent = v; 
-    }
+    function setFan(v) { fetch(`/api/fan?speed=${v}`); document.getElementById('fanVal').textContent = v; }
     function fanOn() { setFan(100); document.getElementById('fanSlider').value = 100; }
     function fanOff() { setFan(0); document.getElementById('fanSlider').value = 0; }
 
-    // --- ĐIỀU KHIỂN CỬA ---
     function openDoor() { fetch('/api/door'); alert('Đã gửi lệnh mở cửa!'); }
 
-    // Chạy vòng lặp làm mới dữ liệu mỗi 2 giây
     setInterval(refreshSensors, 2000);
     refreshSensors();
   </script>
