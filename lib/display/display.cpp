@@ -1,6 +1,8 @@
 #include "display.hpp"
 
+// Khởi tạo đối tượng toàn cục với địa chỉ tạm (sẽ được cập nhật lại sau khi dò quét)
 LiquidCrystal_I2C lcd(0x27, LCD_COLUMNS, LCD_ROWS);
+
 static uint8_t currentSensorPage = 0;
 static uint8_t lastSensorPage = 255;
 static unsigned long lastPageSwitchMs = 0;
@@ -44,6 +46,7 @@ static void displayAnalogPage()
   printPaddedLine(0, line1);
   printPaddedLine(1, line2);
 }
+
 static void displayPirPage()
 {
   char line1[32];
@@ -55,15 +58,42 @@ static void displayPirPage()
   printPaddedLine(0, line1);
   printPaddedLine(1, line2);
 }
+static uint8_t detectLcdAddress() {
+  // 1. Ưu tiên kiểm tra các địa chỉ phổ biến của module chuyển đổi I2C LCD
+  const uint8_t commonAddresses[] = {0x27, 0x3F, 0x20, 0x26};
+  for (int i = 0; i < sizeof(commonAddresses); i++) {
+    Wire.beginTransmission(commonAddresses[i]);
+    if (Wire.endTransmission() == 0) {
+      return commonAddresses[i]; // Tìm thấy địa chỉ hợp lệ
+    }
+  }
+
+  // 2. Nếu không có trong danh sách trên, quét toàn bộ I2C Bus
+  for (uint8_t address = 1; address < 127; address++) {
+    // Phải bỏ qua 0x38 vì đó là địa chỉ của cảm biến DHT20
+    if (address == 0x38) continue; 
+
+    Wire.beginTransmission(address);
+    if (Wire.endTransmission() == 0) {
+      return address;
+    }
+  }
+  
+  return 0x27; // Trả về mặc định nếu rút dây/lỗi để tránh hệ thống crash
+}
 
 void initLCD()
 {
+  Serial.println("Detecting LCD I2C Address...");
   
-  Serial.println("Initializing LCD...");
+  // Tự động tìm địa chỉ
+  uint8_t foundAddress = detectLcdAddress();
+  Serial.printf("Auto-detected LCD Address: 0x%02X\n", foundAddress);
   
-  // SỬA LỖI: Sử dụng lcd.init() thay vì lcd.begin(0,0)
+  // Khởi tạo lại đối tượng LCD bằng địa chỉ vừa tìm được
+  lcd = LiquidCrystal_I2C(foundAddress, LCD_COLUMNS, LCD_ROWS);
+  
   lcd.init(); 
-  
   lcd.backlight();
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -146,8 +176,6 @@ void lcdDisplayRow2()
   displayAnalogPage();
 }
 
-// Update only the colon character at position 13 on row 2
 void lcdUpdateColon()
 {
-  // Kept for compatibility with older main loop logic.
 }

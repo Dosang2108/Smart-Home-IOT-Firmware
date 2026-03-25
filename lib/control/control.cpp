@@ -7,7 +7,6 @@ static uint8_t rgbCycleIndex = 0;
 static unsigned long lastRgbCycleMs = 0;
 static const unsigned long RGB_CYCLE_PERIOD_MS = 2000;
 
-// --- BỔ SUNG: Biến đếm thời gian chống nhấp nháy cho đèn PIR ---
 static unsigned long lastMotionTime = 0;
 static const unsigned long PIR_HOLD_TIME_MS = 5000; // Giữ đèn sáng 5 giây
 // ----------------------------------------------------------------

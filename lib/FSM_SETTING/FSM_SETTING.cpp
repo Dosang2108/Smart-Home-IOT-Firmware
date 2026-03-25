@@ -61,22 +61,27 @@ void initIR()
 void handleIRRemote()
 {
   if (irrecv.decode(&irResults)) {
-    #ifdef IR_DEBUG
-    serialPrintUint64(irResults.value, HEX);
-    Serial.printf("  Protocol: %d\n", irResults.decode_type);
-    #endif
-
-    char key = mapIRCode(irResults.value);
-    if (key != '\0') {
-      Serial.printf("IR Key: %c\n", key);
+    // THÊM DÒNG NÀY: Chỉ xử lý nếu tín hiệu KHÔNG PHẢI là nhiễu (UNKNOWN = -1)
+    if (irResults.decode_type != -1) { 
       
-      lastKeyPressTime = millis_present; // Reset bộ đếm timeout
-      processPasswordFSM(key);
+      #ifdef IR_DEBUG
+      serialPrintUint64(irResults.value, HEX);
+      Serial.printf("  Protocol: %d\n", irResults.decode_type);
+      #endif
+
+      char key = mapIRCode(irResults.value);
+      if (key != '\0') {
+        Serial.printf("IR Key: %c\n", key);
+        
+        lastKeyPressTime = millis_present; // Reset bộ đếm timeout
+        processPasswordFSM(key);
+      }
     }
-    irrecv.resume();
+    
+    // Resume phải luôn được gọi để nhận tín hiệu tiếp theo
+    irrecv.resume(); 
   }
 }
-
 void processPasswordFSM(char key)
 {
   // --- TÍNH NĂNG XÓA LÙI KÝ TỰ ---

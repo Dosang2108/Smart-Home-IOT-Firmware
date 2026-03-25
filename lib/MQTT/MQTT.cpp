@@ -1,5 +1,6 @@
 #include <MQTT.hpp>
 #include <control.hpp>
+#include <messages.hpp> 
 
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
@@ -51,17 +52,17 @@ static bool parseJsonColor(const char* payload, uint8_t* r, uint8_t* g, uint8_t*
   return false;
 }
 
-static bool parseNamedColor(const String& colorName, uint8_t* r, uint8_t* g, uint8_t* b)
+static bool parseNamedColor(const char* colorName, uint8_t* r, uint8_t* g, uint8_t* b)
 {
-  if (colorName == "red")       { *r = 255; *g = 0;   *b = 0;   return true; }
-  if (colorName == "orange")    { *r = 255; *g = 127; *b = 0;   return true; }
-  if (colorName == "yellow")    { *r = 255; *g = 255; *b = 0;   return true; }
-  if (colorName == "green")     { *r = 0;   *g = 255; *b = 0;   return true; }
-  if (colorName == "cyan")      { *r = 0;   *g = 255; *b = 255; return true; }
-  if (colorName == "blue")      { *r = 0;   *g = 0;   *b = 255; return true; }
-  if (colorName == "purple")    { *r = 148; *g = 0;   *b = 211; return true; }
-  if (colorName == "white")     { *r = 255; *g = 255; *b = 255; return true; }
-  if (colorName == "off")       { *r = 0;   *g = 0;   *b = 0;   return true; }
+  if (strcasecmp(colorName, "red") == 0)    { *r = 255; *g = 0;   *b = 0;   return true; }
+  if (strcasecmp(colorName, "orange") == 0) { *r = 255; *g = 127; *b = 0;   return true; }
+  if (strcasecmp(colorName, "yellow") == 0) { *r = 255; *g = 255; *b = 0;   return true; }
+  if (strcasecmp(colorName, "green") == 0)  { *r = 0;   *g = 255; *b = 0;   return true; }
+  if (strcasecmp(colorName, "cyan") == 0)   { *r = 0;   *g = 255; *b = 255; return true; }
+  if (strcasecmp(colorName, "blue") == 0)   { *r = 0;   *g = 0;   *b = 255; return true; }
+  if (strcasecmp(colorName, "purple") == 0) { *r = 148; *g = 0;   *b = 211; return true; }
+  if (strcasecmp(colorName, "white") == 0)  { *r = 255; *g = 255; *b = 255; return true; }
+  if (strcasecmp(colorName, "off") == 0)    { *r = 0;   *g = 0;   *b = 0;   return true; }
   return false;
 }
 
@@ -75,6 +76,8 @@ void init_Wifi_and_MQTT(void)
     Serial.print(".");
   }
   Serial.println("\nWiFi connected");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
 
   espClient.setInsecure();
   client.setServer(mqtt_server, mqtt_port);
@@ -135,51 +138,45 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
     Serial.println("Lỗi: Payload MQTT quá lớn, bo qua de bao ve he thong!");
     return;
   }
-
   char message[length + 1];
   memcpy(message, payload, length);
   message[length] = '\0';
-
   Serial.printf("MQTT [%s]: %s\n", topic, message);
-
-  String topicStr(topic);
-
   // V10: LED on/off ("1" or "0")
-  if (topicStr == MQTT_TOPIC_V10) {
+  if (strcmp(topic, MQTT_TOPIC_V10) == 0) {
     mqttLedState = (message[0] == '1');
     if (mqttLedState) {
       led_rgb_set(mqttLedR, mqttLedG, mqttLedB);
-      publishFeedback("Den da bat");
+      publishFeedback(MSG_LED_ON);
     } else {
       led_rgb_off();
-      publishFeedback("Den da tat");
+      publishFeedback(MSG_LED_OFF);
     }
   }
   // V11: LED color code (e.g., "#FF0000")
-  else if (topicStr == MQTT_TOPIC_V11) {
-    String command = String(message);
-    command.trim();
-    command.toLowerCase();
+  else if (strcmp(topic, MQTT_TOPIC_V11) == 0) {
+    // Xóa khoảng trắng thừa ở đầu chuỗi nếu có
+    char* cmd = message;
+    while (*cmd == ' ') cmd++;
 
-    if (command == "auto") {
+    if (strcasecmp(cmd, "auto") == 0) {
       led_rgb_set_auto(true);
       if (mqttLedState) {
         led_rgb_tick();
       }
-      publishFeedback("RGB auto cycle");
+      publishFeedback(MSG_RGB_AUTO);
       return;
     }
 
     led_rgb_set_auto(false);
-
     uint8_t r = 0, g = 0, b = 0;
-    bool parsed = parseNamedColor(command, &r, &g, &b) ||
+    bool parsed = parseNamedColor(cmd, &r, &g, &b) ||
                   parseHexColor(message, &r, &g, &b) ||
                   parseCsvColor(message, &r, &g, &b) ||
                   parseJsonColor(message, &r, &g, &b);
 
     if (!parsed) {
-      publishFeedback("Sai dinh dang mau RGB");
+      publishFeedback(MSG_RGB_INVALID);
       return;
     }
 
@@ -190,26 +187,26 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
     if (mqttLedState) {
       led_rgb_set(mqttLedR, mqttLedG, mqttLedB);
     }
-    publishFeedback("Da doi mau den RGB");
+    publishFeedback(MSG_RGB_CHANGED);
   }
   // V12: Fan speed (string number 0-100)
-  else if (topicStr == MQTT_TOPIC_V12) {
+  else if (strcmp(topic, MQTT_TOPIC_V12) == 0) {
     mqttFanSpeed = constrain(atoi(message), 0, 100);
     fan_set_speed(mqttFanSpeed);
     char fb[32];
-    snprintf(fb, sizeof(fb), "Quat: %d%%", mqttFanSpeed);
+    snprintf(fb, sizeof(fb), MSG_FAN_SPEED_TEMPLATE, mqttFanSpeed);
     publishFeedback(fb);
   }
   // V14: FaceAI result ("A" or "B")
-  else if (topicStr == MQTT_TOPIC_V14) {
+  else if (strcmp(topic, MQTT_TOPIC_V14) == 0) {
     faceAIResult = String(message);
-    if (faceAIResult == "A") {
+    if (message[0] == 'A') {
       servo_open();
       doorState = DOOR_OPENING;
       doorOpenTime = millis();
-      publishFeedback("Nhan dien thanh cong - Mo cua");
-    } else if (faceAIResult == "B") {
-      publishFeedback("Nhan dien: Khach");
+      publishFeedback(MSG_DOOR_OPEN_SUCCESS);
+    } else if (message[0] == 'B') {
+      publishFeedback(MSG_DOOR_GUEST);
     }
   }
 }

@@ -14,7 +14,7 @@ extern "C"
 // #define soilMoisturePin 1    // A0 (GPIO1)
 #define light 2              // A1 (GPIO2)
 #define FAN_PIN 10           // Fan pin (GPIO10)
-#define PIN_NEO_PIXEL 6      // RGB NeoPixel pin (GPIO6)
+#define PIN_NEO_PIXEL 18      // RGB NeoPixel pin (GPIO6)
 #define NUM_PIXELS 4
 #define PIR_PIN GPIO_NUM_7          // PIR motion sensor (adjust to your board)
 #define IR_RECV_PIN GPIO_NUM_9       // IR receiver pin (adjust to your board)
