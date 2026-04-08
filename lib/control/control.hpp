@@ -26,6 +26,7 @@ extern "C"
     void led_rgb_set(uint8_t r, uint8_t g, uint8_t b);
     void led_rgb_off();
     void led_rgb_set_auto(bool enabled);
+    bool led_rgb_is_auto(void);
     void led_rgb_tick(void);
     void ledwhite_on();
     void ledwhite_off();

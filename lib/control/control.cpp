@@ -83,6 +83,11 @@ void led_rgb_set_auto(bool enabled)
   }
 }
 
+bool led_rgb_is_auto(void)
+{
+  return rgbAutoCycle;
+}
+
 void led_rgb_tick(void)
 {
   if (!rgbAutoCycle || !mqttLedState) {
@@ -93,6 +98,9 @@ void led_rgb_tick(void)
   }
   lastRgbCycleMs = millis_present;
   const RgbColor color = kRgbCycleColors[rgbCycleIndex];
+  mqttLedR = color.r;
+  mqttLedG = color.g;
+  mqttLedB = color.b;
   led_rgb_set(color.r, color.g, color.b); // Hàm này giờ đã bật cả 4 bóng
   rgbCycleIndex = (rgbCycleIndex + 1) % kRgbCycleColorCount;
 }

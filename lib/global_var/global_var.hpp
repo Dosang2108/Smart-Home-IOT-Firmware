@@ -32,11 +32,26 @@ extern "C"
 #define MQTT_TOPIC_V1   "yolohome/V1"
 #define MQTT_TOPIC_V2   "yolohome/V2"
 #define MQTT_TOPIC_V3   "yolohome/V3"
+#define MQTT_TOPIC_V4   "yolohome/V4"
+#define MQTT_TOPIC_V5   "yolohome/V5"
+#define MQTT_TOPIC_V6   "yolohome/V6"
 #define MQTT_TOPIC_V10  "yolohome/V10"
 #define MQTT_TOPIC_V11  "yolohome/V11"
 #define MQTT_TOPIC_V12  "yolohome/V12"
 #define MQTT_TOPIC_V13  "yolohome/V13"
 #define MQTT_TOPIC_V14  "yolohome/V14"
+
+// ============ MQTT Structured Topics ============
+#define MQTT_DEVICE_ID           "yolo_uno_01"
+#define MQTT_SCHEMA_VERSION      1
+#define MQTT_FIRMWARE_VERSION    "2026.04"
+
+#define MQTT_TOPIC_CMD           "yolohome/device/yolo_uno_01/cmd"
+#define MQTT_TOPIC_ACK           "yolohome/device/yolo_uno_01/ack"
+#define MQTT_TOPIC_STATE         "yolohome/device/yolo_uno_01/state"
+#define MQTT_TOPIC_TELEMETRY     "yolohome/device/yolo_uno_01/telemetry"
+#define MQTT_TOPIC_EVENT         "yolohome/device/yolo_uno_01/event"
+#define MQTT_TOPIC_AVAILABILITY  "yolohome/device/yolo_uno_01/availability"
 
 // ============ Timer Periods (ms) ============
 #define PERIOD_100MS  100
