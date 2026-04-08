@@ -412,6 +412,22 @@ void publishFeedback(const char* message)
 void mqtt_callback(char* topic, byte* payload, unsigned int length)
 {
   if (payload == nullptr || length == 0) return;
+  Serial.print("MQTT topic: ");
+  Serial.println(topic);
+  Serial.print("Payload text: ");
+for (unsigned int i = 0; i < length; i++) {
+Serial.print((char)payload[i]);
+}
+Serial.println();
+
+Serial.print("Payload hex : ");
+for (unsigned int i = 0; i < length; i++) {
+if (payload[i] < 16) Serial.print('0');
+Serial.print(payload[i], HEX);
+Serial.print(' ');
+}
+Serial.println();
+Serial.println("---------------------------");
   if (length > MQTT_MAX_PAYLOAD_LEN) {
     Serial.println("Error: MQTT payload too large, message ignored");
     return;
