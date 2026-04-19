@@ -16,6 +16,7 @@ void init_Wifi_and_MQTT(void);
 void registerChannels(void);
 void mqttLoop(void);
 void publishSensorData(void);
+void publishActuatorStatus(void);
 void publishFeedback(const char* message);
 void mqtt_callback(char* topic, byte* payload, unsigned int length);
 void reconnect(void);

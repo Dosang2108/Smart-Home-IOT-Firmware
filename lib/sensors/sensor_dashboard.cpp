@@ -456,6 +456,11 @@ const char index_html[] PROGMEM = R"rawliteral(
           </div>
         </article>
         <article class="kpi">
+          <small>Cua tu dong</small>
+          <div id="doorStatusVal" class="value">--</div>
+          <span id="doorStatusMeta" style="color:var(--muted); font-size:0.86rem;">state=--</span>
+        </article>
+        <article class="kpi">
           <small>Uptime</small>
           <div id="uptimeVal" class="value">--</div>
           <span style="color:var(--muted); font-size:0.86rem;">thiet bi dang hoat dong</span>
@@ -521,7 +526,16 @@ const char index_html[] PROGMEM = R"rawliteral(
           <button class="btn-danger" onclick="fanOff()">Quat 0%</button>
         </div>
 
-        <button class="btn-warn btn-door" onclick="openDoor()">Mo cua chinh</button>
+        <div class="row spaced" style="margin-top:12px;">
+          <span>Trang thai cua: <strong id="doorStatusInline">--</strong></span>
+          <span style="color:var(--muted); font-size:0.84rem;">Servo GPIO48</span>
+        </div>
+
+        <div class="btn-grid">
+          <button class="btn-warn" onclick="openDoor()">Mo cua</button>
+          <button class="btn-teal" onclick="closeDoor()">Dong cua</button>
+          <button onclick="refreshSensors()">Lam moi</button>
+        </div>
       </div>
     </section>
 
@@ -631,6 +645,8 @@ const char index_html[] PROGMEM = R"rawliteral(
         const hum = Number(d.humidity) || 0;
         const light = Number(d.light) || 0;
         const fan = Number(d.fanSpeed) || 0;
+        const doorState = Number(d.doorState);
+        const doorStatus = String(d.doorStatus || 'unknown').toUpperCase();
         const ledHex = '#' + toHex(d.ledR) + toHex(d.ledG) + toHex(d.ledB);
         const mode = d.ledMode || 'off';
 
@@ -642,6 +658,9 @@ const char index_html[] PROGMEM = R"rawliteral(
         document.getElementById('ledModeVal').textContent = String(mode).toUpperCase();
         document.getElementById('ledHex').textContent = ledHex;
         document.getElementById('ledPreview').style.background = d.ledEnabled ? ledHex : '#0f1722';
+        document.getElementById('doorStatusVal').textContent = doorStatus;
+        document.getElementById('doorStatusMeta').textContent = Number.isFinite(doorState) ? ('state=' + doorState) : 'state=--';
+        document.getElementById('doorStatusInline').textContent = doorStatus;
         document.getElementById('uptimeVal').textContent = formatUptime(d.uptimeSec);
 
         updateMeter('tempBar', temp, 50);
@@ -723,9 +742,13 @@ const char index_html[] PROGMEM = R"rawliteral(
     }
 
     function openDoor() {
-      fetch('/api/door');
+      fetch('/api/door/open').then(() => refreshSensors());
       addLog('Gui lenh mo cua chinh');
-      alert('Da gui lenh mo cua!');
+    }
+
+    function closeDoor() {
+      fetch('/api/door/close').then(() => refreshSensors());
+      addLog('Gui lenh dong cua chinh');
     }
 
     addLog('Khoi dong dashboard');
@@ -758,6 +781,8 @@ static void handleApiSensors()
   doc["ledB"] = mqttLedB;
   doc["ledMode"] = ledMode;
   doc["fanSpeed"] = mqttFanSpeed;
+  doc["doorState"] = (int)doorState;
+  doc["doorStatus"] = door_state_to_text(doorState);
   doc["uptimeSec"] = millis_present / 1000;
 
   String payload;
@@ -779,6 +804,7 @@ static void handleRgbSet()
   mqttLedB = b;
   led_rgb_set_auto(false);
   led_rgb_set(mqttLedR, mqttLedG, mqttLedB);
+  publishActuatorStatus();
 
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "RGB set");
@@ -789,6 +815,7 @@ static void handleRgbOff()
   mqttLedState = false;
   led_rgb_set_auto(false);
   led_rgb_off();
+  publishActuatorStatus();
 
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "RGB off");
@@ -798,6 +825,7 @@ static void handleRgbAuto()
 {
   mqttLedState = true;
   led_rgb_set_auto(true);
+  publishActuatorStatus();
 
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "RGB auto");
@@ -808,6 +836,7 @@ static void handleFanSet()
   if (dashboardServer.hasArg("speed")) {
     mqttFanSpeed = constrain(dashboardServer.arg("speed").toInt(), 0, 100);
     fan_set_speed(mqttFanSpeed);
+    publishActuatorStatus();
   }
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "Fan set");
@@ -815,12 +844,20 @@ static void handleFanSet()
 
 static void handleDoorOpen()
 {
-  servo_open();
-  doorState = DOOR_OPENING;
-  doorOpenTime = millis_present;
+  door_command_open();
+  publishActuatorStatus();
 
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "Door Opened");
+}
+
+static void handleDoorClose()
+{
+  door_command_close();
+  publishActuatorStatus();
+
+  dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
+  dashboardServer.send(200, "text/plain", "Door Closed");
 }
 
 static void handleDashboardRoot()
@@ -843,6 +880,8 @@ void initSensorDashboard()
   dashboardServer.on("/api/rgb/off", HTTP_GET, handleRgbOff);
   dashboardServer.on("/api/rgb/auto", HTTP_GET, handleRgbAuto);
   dashboardServer.on("/api/fan", HTTP_GET, handleFanSet);
+  dashboardServer.on("/api/door/open", HTTP_GET, handleDoorOpen);
+  dashboardServer.on("/api/door/close", HTTP_GET, handleDoorClose);
   dashboardServer.on("/api/door", HTTP_GET, handleDoorOpen);
 
   dashboardServer.begin();

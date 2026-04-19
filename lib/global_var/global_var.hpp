@@ -18,7 +18,7 @@ extern "C"
 #define NUM_PIXELS 4
 #define PIR_PIN GPIO_NUM_7          // PIR motion sensor
 #define IR_RECV_PIN GPIO_NUM_9       // IR receiver pin 
-#define SERVO_PIN 4          // Servo motor pin 
+#define SERVO_PIN 48         // Servo motor pin (GPIO48)
 #define I2C_SCL_PIN GPIO_NUM_12       // I2C SCL (GPIO12)
 #define I2C_SDA_PIN GPIO_NUM_11       // I2C SDA (GPIO11)
 #define LCD_COLUMNS 16
@@ -27,19 +27,6 @@ extern "C"
 // ============ ID Setup ============
 #define ID_area_send 2
 #define ID_area_recv 2
-
-// ============ MQTT V-Channel Topics ============
-#define MQTT_TOPIC_V1   "yolohome/V1"
-#define MQTT_TOPIC_V2   "yolohome/V2"
-#define MQTT_TOPIC_V3   "yolohome/V3"
-#define MQTT_TOPIC_V4   "yolohome/V4"
-#define MQTT_TOPIC_V5   "yolohome/V5"
-#define MQTT_TOPIC_V6   "yolohome/V6"
-#define MQTT_TOPIC_V10  "yolohome/V10"
-#define MQTT_TOPIC_V11  "yolohome/V11"
-#define MQTT_TOPIC_V12  "yolohome/V12"
-#define MQTT_TOPIC_V13  "yolohome/V13"
-#define MQTT_TOPIC_V14  "yolohome/V14"
 
 // ============ MQTT Structured Topics ============
 #define MQTT_DEVICE_ID           "yolo_uno_01"

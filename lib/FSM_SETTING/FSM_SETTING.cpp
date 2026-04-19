@@ -111,9 +111,7 @@ void processPasswordFSM(char key)
       else if (inputPass == adminPassword) {
         Serial.println("Password CORRECT -> Opening door");
         publishFeedback("Mat ma dung - Mo cua");
-        servo_open();
-        doorState = DOOR_OPENING;
-        doorOpenTime = millis_present; 
+        door_command_open();
         inputPass = "";
       }
       else {

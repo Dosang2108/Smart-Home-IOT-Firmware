@@ -8,6 +8,7 @@
 #define MSG_RGB_CHANGED         "Da doi mau den RGB"
 #define MSG_FAN_SPEED_TEMPLATE  "Quat: %d%%"
 #define MSG_DOOR_OPEN_SUCCESS   "Nhan dien thanh cong - Mo cua"
+#define MSG_DOOR_CLOSE_SUCCESS  "Dong cua thanh cong"
 #define MSG_DOOR_GUEST          "Nhan dien: Khach"
 \
 #define MSG_WIFI_CONNECTED      "WiFi connected "

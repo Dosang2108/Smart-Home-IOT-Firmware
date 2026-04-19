@@ -42,6 +42,9 @@ extern "C"
     void servo_open();
     void servo_close();
     void servo_detach_motor();
+    void door_command_open();
+    void door_command_close();
+    const char* door_state_to_text(DoorState state);
     void handleDoorServo();
 
 #ifdef __cplusplus

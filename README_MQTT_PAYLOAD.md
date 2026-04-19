@@ -117,6 +117,12 @@ Alternative accepted key: `value`.
 { "commandId": "c_door_open", "target": "door", "action": "open" }
 ```
 
+- Close door:
+
+```json
+{ "commandId": "c_door_close", "target": "door", "action": "close" }
+```
+
 ### 3.5 System Commands
 
 - Ping:
@@ -152,12 +158,14 @@ Payload:
     "ledMode": "manual",
     "ledR": 255,
     "ledG": 80,
-    "ledB": 20
+    "ledB": 20,
+    "doorState": 0,
+    "doorStatus": "closed"
   }
 }
 ```
 
-`source` can be `cmd_topic` or legacy source (`v10`, `v11`, `v12`, `v14`).
+`source` is `cmd_topic` for commands received from the structured CMD topic.
 
 ## 5) STATE Topic
 
@@ -190,12 +198,15 @@ Payload:
     "ledR": 255,
     "ledG": 80,
     "ledB": 20,
-    "doorState": 0
+    "doorState": 0,
+    "doorStatus": "closed"
   }
 }
 ```
 
 `doorState`: `0=DOOR_CLOSED`, `1=DOOR_OPENING`, `2=DOOR_CLOSING`.
+
+`doorStatus`: `"closed" | "opening" | "closing"`.
 
 ## 6) TELEMETRY Topic
 
@@ -250,8 +261,8 @@ Known examples:
 
 - `eventType=system`, `message=mqtt_connected`
 - `eventType=door`, `message=opened_from_cmd_topic`
-- `eventType=face_ai`, `message=recognized_owner`
-- `eventType=face_ai`, `message=recognized_guest`
+- `eventType=door`, `message=closed_from_cmd_topic`
+- `eventType=feedback`, `message=Dong cua thanh cong`
 
 ## 8) AVAILABILITY Topic
 
@@ -277,35 +288,7 @@ LWT behavior:
 - On unexpected disconnect, broker publishes `offline` (QoS 1, retained).
 - On successful reconnect, device publishes `online`.
 
-## 9) Legacy V-Channel Payloads (Backward Compatibility)
-
-Control topics (inbound):
-
-- `yolohome/V10` (LED on/off):
-  - Payload: `"1"` or `"0"`
-- `yolohome/V11` (LED color/mode):
-  - Payload accepted:
-    - `"auto"`
-    - named color (`red`, `green`, ...)
-    - hex (`"#RRGGBB"`)
-    - CSV (`"r,g,b"`)
-    - JSON (`{"r":255,"g":80,"b":20}` or `{"hex":"#FF5014"}`)
-- `yolohome/V12` (fan speed):
-  - Payload: string number `0..100`
-- `yolohome/V14` (face result):
-  - Payload: `"A"` (owner), `"B"` (guest)
-
-Status topics (outbound):
-
-- `yolohome/V1` temperature text (example: `"29.5"`)
-- `yolohome/V2` humidity text (example: `"66.3"`)
-- `yolohome/V3` light text integer (example: `"40"`)
-- `yolohome/V4` fan speed text integer (example: `"60"`)
-- `yolohome/V5` LED color hex (example: `"#FF5014"`)
-- `yolohome/V6` LED mode (`"off"`, `"manual"`, `"auto"`)
-- `yolohome/V13` feedback text message
-
-## 10) Quick End-to-End Test
+## 9) Quick End-to-End Test
 
 1. Subscribe:
 

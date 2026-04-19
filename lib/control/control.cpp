@@ -157,28 +157,68 @@ void handlePIRControl()
 }
 
 // ============ Servo ============
+static const uint8_t DOOR_SERVO_OPEN_ANGLE = 90;
+static const uint8_t DOOR_SERVO_CLOSED_ANGLE = 0;
+
+static void attachDoorServoIfNeeded()
+{
+  if (!doorServo.attached()) {
+    doorServo.attach(SERVO_PIN);
+  }
+}
+
 void initServo()
 {
-  doorServo.attach(SERVO_PIN);
-  doorServo.write(0);
+  attachDoorServoIfNeeded();
+  doorServo.write(DOOR_SERVO_CLOSED_ANGLE);
   delay(500);
   doorServo.detach();
+  doorState = DOOR_CLOSED;
 }
 
 void servo_open()
 {
-  doorServo.attach(SERVO_PIN);
-  doorServo.write(90);
+  attachDoorServoIfNeeded();
+  doorServo.write(DOOR_SERVO_OPEN_ANGLE);
 }
 
 void servo_close()
 {
-  doorServo.write(0);
+  attachDoorServoIfNeeded();
+  doorServo.write(DOOR_SERVO_CLOSED_ANGLE);
 }
 
 void servo_detach_motor()
 {
   doorServo.detach();
+}
+
+void door_command_open()
+{
+  servo_open();
+  doorState = DOOR_OPENING;
+  doorOpenTime = millis_present;
+}
+
+void door_command_close()
+{
+  servo_close();
+  doorState = DOOR_CLOSING;
+  doorOpenTime = millis_present;
+}
+
+const char* door_state_to_text(DoorState state)
+{
+  switch (state) {
+    case DOOR_CLOSED:
+      return "closed";
+    case DOOR_OPENING:
+      return "opening";
+    case DOOR_CLOSING:
+      return "closing";
+    default:
+      return "unknown";
+  }
 }
 
 void handleDoorServo()

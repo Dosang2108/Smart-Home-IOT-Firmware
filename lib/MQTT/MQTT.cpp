@@ -36,24 +36,6 @@ static bool parseCsvColor(const char* colorStr, uint8_t* r, uint8_t* g, uint8_t*
   return true;
 }
 
-static bool parseJsonColor(const char* payload, uint8_t* r, uint8_t* g, uint8_t* b)
-{
-  JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, payload);
-  if (err) return false;
-
-  if (doc["r"].is<int>() && doc["g"].is<int>() && doc["b"].is<int>()) {
-    *r = (uint8_t)constrain(doc["r"].as<int>(), 0, 255);
-    *g = (uint8_t)constrain(doc["g"].as<int>(), 0, 255);
-    *b = (uint8_t)constrain(doc["b"].as<int>(), 0, 255);
-    return true;
-  }
-  if (doc["hex"].is<const char*>()) {
-    return parseHexColor(doc["hex"].as<const char*>(), r, g, b);
-  }
-  return false;
-}
-
 static bool parseNamedColor(const char* colorName, uint8_t* r, uint8_t* g, uint8_t* b)
 {
   if (strcasecmp(colorName, "red") == 0)    { *r = 255; *g = 0;   *b = 0;   return true; }
@@ -114,6 +96,7 @@ static void publishStateJson(void)
   state["ledG"] = mqttLedState ? mqttLedG : 0;
   state["ledB"] = mqttLedState ? mqttLedB : 0;
   state["doorState"] = (int)doorState;
+  state["doorStatus"] = door_state_to_text(doorState);
 
   String payload;
   serializeJson(doc, payload);
@@ -156,36 +139,18 @@ static void publishCommandAck(const String& commandId, bool success, const char*
   state["ledR"] = mqttLedState ? mqttLedR : 0;
   state["ledG"] = mqttLedState ? mqttLedG : 0;
   state["ledB"] = mqttLedState ? mqttLedB : 0;
+  state["doorState"] = (int)doorState;
+  state["doorStatus"] = door_state_to_text(doorState);
 
   String payload;
   serializeJson(doc, payload);
   client.publish(MQTT_TOPIC_ACK, payload.c_str());
 }
 
-static void publishActuatorStatus(void)
+void publishActuatorStatus(void)
 {
-  char fanBuf[8];
-  snprintf(fanBuf, sizeof(fanBuf), "%d", mqttFanSpeed);
-  client.publish(MQTT_TOPIC_V4, fanBuf);
-
-  uint8_t r = mqttLedState ? mqttLedR : 0;
-  uint8_t g = mqttLedState ? mqttLedG : 0;
-  uint8_t b = mqttLedState ? mqttLedB : 0;
-
-  char colorBuf[8];
-  snprintf(colorBuf, sizeof(colorBuf), "#%02X%02X%02X", r, g, b);
-  client.publish(MQTT_TOPIC_V5, colorBuf);
-
-  const char* mode = getLedMode();
-  client.publish(MQTT_TOPIC_V6, mode);
-
   publishStateJson();
-  Serial.printf("Published: V4=%d V5=%s V6=%s\n", mqttFanSpeed, colorBuf, mode);
-}
-
-static String generateLegacyCommandId(const char* topic)
-{
-  return String("legacy-") + topic + "-" + String(millis_present);
+  Serial.println("Published structured state payload");
 }
 
 static bool parseCommandId(JsonDocument& doc, String* commandId)
@@ -320,11 +285,15 @@ static bool handleStructuredCommand(const char* payload, String* commandId, cons
 
   if (strcasecmp(target, "door") == 0) {
     if (strcasecmp(action, "open") == 0) {
-      servo_open();
-      doorState = DOOR_OPENING;
-      doorOpenTime = millis_present;
+      door_command_open();
       publishEvent("door", "opened_from_cmd_topic");
       *detail = "door_open";
+      return true;
+    }
+    if (strcasecmp(action, "close") == 0) {
+      door_command_close();
+      publishEvent("door", "closed_from_cmd_topic");
+      *detail = "door_close";
       return true;
     }
     *detail = "invalid_door_action";
@@ -362,12 +331,8 @@ void registerChannels(void)
 {
   reconnect();
   if (client.connected()) {
-    client.subscribe(MQTT_TOPIC_V10);
-    client.subscribe(MQTT_TOPIC_V11);
-    client.subscribe(MQTT_TOPIC_V12);
-    client.subscribe(MQTT_TOPIC_V14);
     client.subscribe(MQTT_TOPIC_CMD);
-    Serial.println("Registered MQTT channels: V10, V11, V12, V14, cmd");
+    Serial.println("Registered MQTT channels: cmd");
   }
 }
 
@@ -382,31 +347,17 @@ void mqttLoop(void)
 
 void publishSensorData(void)
 {
-  char buf[16];
-  if (dhtDataValid) {
-    snprintf(buf, sizeof(buf), "%.1f", Value_Temperature);
-    client.publish(MQTT_TOPIC_V1, buf);
-
-    snprintf(buf, sizeof(buf), "%.1f", Value_Humidity);
-    client.publish(MQTT_TOPIC_V2, buf);
-  } else {
-    Serial.println("Skip publish V1/V2: DHT20 data invalid");
-  }
-
-  snprintf(buf, sizeof(buf), "%d", Value_Light);
-  client.publish(MQTT_TOPIC_V3, buf);
-
   publishTelemetryJson();
   publishActuatorStatus();
 
-  Serial.printf("Published: V1=%.1f V2=%.1f V3=%d\n",
-                Value_Temperature, Value_Humidity, Value_Light);
+  Serial.printf("Published telemetry: T=%.1f H=%.1f L=%d DHT=%d\n",
+                Value_Temperature, Value_Humidity, Value_Light, dhtDataValid ? 1 : 0);
 }
 
 void publishFeedback(const char* message)
 {
-  client.publish(MQTT_TOPIC_V13, message);
-  Serial.printf("Feedback V13: %s\n", message);
+  publishEvent("feedback", message);
+  Serial.printf("Feedback event: %s\n", message);
 }
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length)
@@ -449,6 +400,8 @@ Serial.println("---------------------------");
       publishCommandAck(commandId, true, detail, "cmd_topic");
       if (strcmp(detail, "door_open") == 0) {
         publishFeedback(MSG_DOOR_OPEN_SUCCESS);
+      } else if (strcmp(detail, "door_close") == 0) {
+        publishFeedback(MSG_DOOR_CLOSE_SUCCESS);
       }
     } else {
       publishCommandAck(commandId, false, detail, "cmd_topic");
@@ -456,88 +409,7 @@ Serial.println("---------------------------");
     return;
   }
 
-  if (strcmp(topic, MQTT_TOPIC_V10) == 0) {
-    String commandId = generateLegacyCommandId(topic);
-    mqttLedState = (message[0] == '1');
-    if (mqttLedState) {
-      led_rgb_set(mqttLedR, mqttLedG, mqttLedB);
-      publishFeedback(MSG_LED_ON);
-      publishCommandAck(commandId, true, "legacy_led_on", "v10");
-    } else {
-      led_rgb_set_auto(false);
-      led_rgb_off();
-      publishFeedback(MSG_LED_OFF);
-      publishCommandAck(commandId, true, "legacy_led_off", "v10");
-    }
-    publishActuatorStatus();
-  }
-  else if (strcmp(topic, MQTT_TOPIC_V11) == 0) {
-    String commandId = generateLegacyCommandId(topic);
-    char* cmd = message;
-    while (*cmd == ' ') cmd++;
-
-    if (strcasecmp(cmd, "auto") == 0) {
-      mqttLedState = true;
-      led_rgb_set_auto(true);
-      led_rgb_tick();
-      publishFeedback(MSG_RGB_AUTO);
-      publishCommandAck(commandId, true, "legacy_led_auto", "v11");
-      publishActuatorStatus();
-      return;
-    }
-
-    led_rgb_set_auto(false);
-    uint8_t r = 0, g = 0, b = 0;
-    bool parsed = parseNamedColor(cmd, &r, &g, &b) ||
-                  parseHexColor(cmd, &r, &g, &b) ||
-                  parseCsvColor(cmd, &r, &g, &b) ||
-                  parseJsonColor(cmd, &r, &g, &b);
-
-    if (!parsed) {
-      publishFeedback(MSG_RGB_INVALID);
-      publishCommandAck(commandId, false, "legacy_invalid_rgb", "v11");
-      return;
-    }
-
-    mqttLedR = r;
-    mqttLedG = g;
-    mqttLedB = b;
-
-    if (mqttLedState) {
-      led_rgb_set(mqttLedR, mqttLedG, mqttLedB);
-    }
-    publishFeedback(MSG_RGB_CHANGED);
-    publishCommandAck(commandId, true, "legacy_rgb_set", "v11");
-    publishActuatorStatus();
-  }
-  else if (strcmp(topic, MQTT_TOPIC_V12) == 0) {
-    String commandId = generateLegacyCommandId(topic);
-    mqttFanSpeed = constrain(atoi(message), 0, 100);
-    fan_set_speed(mqttFanSpeed);
-    char fb[32];
-    snprintf(fb, sizeof(fb), MSG_FAN_SPEED_TEMPLATE, mqttFanSpeed);
-    publishFeedback(fb);
-    publishCommandAck(commandId, true, "legacy_fan_set", "v12");
-    publishActuatorStatus();
-  }
-  else if (strcmp(topic, MQTT_TOPIC_V14) == 0) {
-    String commandId = generateLegacyCommandId(topic);
-    faceAIResult = String(message);
-    if (message[0] == 'A') {
-      servo_open();
-      doorState = DOOR_OPENING;
-      doorOpenTime = millis_present;
-      publishFeedback(MSG_DOOR_OPEN_SUCCESS);
-      publishEvent("face_ai", "recognized_owner");
-      publishCommandAck(commandId, true, "legacy_door_open", "v14");
-    } else if (message[0] == 'B') {
-      publishFeedback(MSG_DOOR_GUEST);
-      publishEvent("face_ai", "recognized_guest");
-      publishCommandAck(commandId, true, "legacy_guest", "v14");
-    } else {
-      publishCommandAck(commandId, false, "legacy_unknown_face_code", "v14");
-    }
-  }
+  Serial.println("MQTT topic ignored (not subscribed in structured mode)");
 }
 
 void reconnect()
@@ -565,10 +437,6 @@ void reconnect()
       "offline"))
   {
     Serial.println("MQTT connected");
-    client.subscribe(MQTT_TOPIC_V10);
-    client.subscribe(MQTT_TOPIC_V11);
-    client.subscribe(MQTT_TOPIC_V12);
-    client.subscribe(MQTT_TOPIC_V14);
     client.subscribe(MQTT_TOPIC_CMD);
 
     publishAvailability("online");

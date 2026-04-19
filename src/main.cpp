@@ -38,7 +38,7 @@ void setup()
   initServo();
   initIR();
 
-  // Register MQTT V-channels
+  // Register structured MQTT channels
   registerChannels();
 
   // Start local web dashboard
