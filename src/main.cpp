@@ -7,6 +7,10 @@
 #include <sensor_dashboard.hpp>
 #include <control.hpp>
 #include <messages.hpp>
+#include <app_rtos.hpp>
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 void setup()
 {
@@ -59,37 +63,12 @@ void setup()
   // Khởi tạo đọc cảm biến lần đầu
   valueSensor();
   lcdDisplaySensors();
+
+  // Start RTOS application tasks
+  appRtosStart();
 }
 
 void loop()
 {
-  millis_update();
-  mqttLoop();
-  handleSensorDashboard();
-  // === 100ms tasks: PIR sensor + IR remote (T6, T7) ===
-  if (millis_present - lastTime_100ms >= PERIOD_100MS)
-  {
-    lastTime_100ms = millis_present;
-    led_rgb_tick();       
-    readPIR();            
-    handleIRRemote();     
-    handlePIRControl();   
-    handleDoorServo();    
-    checkFSMTimeout();    
-  }
-
-  // === 1S tasks: Cập nhật giao diện LCD === (MỚI)
-  if (millis_present - lastTime_1s >= PERIOD_1S)
-  {
-    lastTime_1s = millis_present;
-    lcdDisplaySensors();  // Chỉ cập nhật màn hình 1 giây/lần để tránh lag UI
-  }
-
-  // === 30s tasks: Sensor read + MQTT publish (T1, T2) ===
-  if (millis_present - lastTime_30s >= PERIOD_30S)
-  {
-    lastTime_30s = millis_present;
-    valueSensor();        
-    publishSensorData();  
-  }
+  vTaskDelay(pdMS_TO_TICKS(1000));
 }

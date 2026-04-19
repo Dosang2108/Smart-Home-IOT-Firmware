@@ -2,11 +2,50 @@
 #include <control.hpp>
 #include <messages.hpp>
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
 static unsigned long lastReconnectAttemptMs = 0;
 static const unsigned long RECONNECT_INTERVAL_MS = 5000;
 static const unsigned int MQTT_MAX_PAYLOAD_LEN = 512;
+static SemaphoreHandle_t mqttClientMutex = nullptr;
+
+static bool mqttClientLock(TickType_t timeoutTicks = pdMS_TO_TICKS(1000))
+{
+  if (mqttClientMutex == nullptr) {
+    return false;
+  }
+  return xSemaphoreTakeRecursive(mqttClientMutex, timeoutTicks) == pdTRUE;
+}
+
+static void mqttClientUnlock(void)
+{
+  if (mqttClientMutex != nullptr) {
+    xSemaphoreGiveRecursive(mqttClientMutex);
+  }
+}
+
+static bool mqttPublish(const char* topic, const char* payload, bool retained = false)
+{
+  if (!mqttClientLock()) {
+    return false;
+  }
+  bool ok = client.publish(topic, payload, retained);
+  mqttClientUnlock();
+  return ok;
+}
+
+static bool mqttSubscribe(const char* topic)
+{
+  if (!mqttClientLock()) {
+    return false;
+  }
+  bool ok = client.subscribe(topic);
+  mqttClientUnlock();
+  return ok;
+}
 
 static bool parseHexColor(const char* colorStr, uint8_t* r, uint8_t* g, uint8_t* b)
 {
@@ -60,7 +99,7 @@ static const char* getLedMode(void)
 
 static void publishAvailability(const char* status)
 {
-  client.publish(MQTT_TOPIC_AVAILABILITY, status, true);
+  mqttPublish(MQTT_TOPIC_AVAILABILITY, status, true);
 }
 
 static void publishEvent(const char* eventType, const char* message)
@@ -75,7 +114,7 @@ static void publishEvent(const char* eventType, const char* message)
 
   String payload;
   serializeJson(doc, payload);
-  client.publish(MQTT_TOPIC_EVENT, payload.c_str());
+  mqttPublish(MQTT_TOPIC_EVENT, payload.c_str());
 }
 
 static void publishStateJson(void)
@@ -85,7 +124,7 @@ static void publishStateJson(void)
   doc["deviceId"] = MQTT_DEVICE_ID;
   doc["fwVersion"] = MQTT_FIRMWARE_VERSION;
   doc["ts"] = millis_present;
-  doc["mqttConnected"] = client.connected();
+  doc["mqttConnected"] = isMqttConnected();
   doc["wifiRssi"] = WiFi.RSSI();
 
   JsonObject state = doc["state"].to<JsonObject>();
@@ -100,7 +139,7 @@ static void publishStateJson(void)
 
   String payload;
   serializeJson(doc, payload);
-  client.publish(MQTT_TOPIC_STATE, payload.c_str(), true);
+  mqttPublish(MQTT_TOPIC_STATE, payload.c_str(), true);
 }
 
 static void publishTelemetryJson(void)
@@ -118,7 +157,7 @@ static void publishTelemetryJson(void)
 
   String payload;
   serializeJson(doc, payload);
-  client.publish(MQTT_TOPIC_TELEMETRY, payload.c_str());
+  mqttPublish(MQTT_TOPIC_TELEMETRY, payload.c_str());
 }
 
 static void publishCommandAck(const String& commandId, bool success, const char* message, const char* source)
@@ -144,7 +183,7 @@ static void publishCommandAck(const String& commandId, bool success, const char*
 
   String payload;
   serializeJson(doc, payload);
-  client.publish(MQTT_TOPIC_ACK, payload.c_str());
+  mqttPublish(MQTT_TOPIC_ACK, payload.c_str());
 }
 
 void publishActuatorStatus(void)
@@ -325,24 +364,34 @@ void init_Wifi_and_MQTT(void)
   espClient.setInsecure();
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(mqtt_callback);
+
+  if (mqttClientMutex == nullptr) {
+    mqttClientMutex = xSemaphoreCreateRecursiveMutex();
+    if (mqttClientMutex == nullptr) {
+      Serial.println("Error: failed to create MQTT mutex");
+    }
+  }
 }
 
 void registerChannels(void)
 {
   reconnect();
-  if (client.connected()) {
-    client.subscribe(MQTT_TOPIC_CMD);
+  if (isMqttConnected()) {
+    mqttSubscribe(MQTT_TOPIC_CMD);
     Serial.println("Registered MQTT channels: cmd");
   }
 }
 
 void mqttLoop(void)
 {
-  if (!client.connected()) {
+  if (!isMqttConnected()) {
     reconnect();
     return;
   }
-  client.loop();
+  if (mqttClientLock(pdMS_TO_TICKS(100))) {
+    client.loop();
+    mqttClientUnlock();
+  }
 }
 
 void publishSensorData(void)
@@ -414,12 +463,18 @@ Serial.println("---------------------------");
 
 void reconnect()
 {
+  if (!mqttClientLock(pdMS_TO_TICKS(2000))) {
+    return;
+  }
+
   if (client.connected()) {
+    mqttClientUnlock();
     return;
   }
 
   unsigned long now = millis();
   if (lastReconnectAttemptMs != 0 && (now - lastReconnectAttemptMs) < RECONNECT_INTERVAL_MS) {
+    mqttClientUnlock();
     return;
   }
   lastReconnectAttemptMs = now;
@@ -437,19 +492,26 @@ void reconnect()
       "offline"))
   {
     Serial.println("MQTT connected");
-    client.subscribe(MQTT_TOPIC_CMD);
+    mqttSubscribe(MQTT_TOPIC_CMD);
 
     publishAvailability("online");
     publishEvent("system", "mqtt_connected");
     publishActuatorStatus();
+    mqttClientUnlock();
   }
   else
   {
     Serial.printf("Failed, rc=%d. Next retry in 5s\n", client.state());
+    mqttClientUnlock();
   }
 }
 
 bool isMqttConnected(void)
 {
-  return client.connected();
+  if (!mqttClientLock(pdMS_TO_TICKS(100))) {
+    return false;
+  }
+  bool connected = client.connected();
+  mqttClientUnlock();
+  return connected;
 }
