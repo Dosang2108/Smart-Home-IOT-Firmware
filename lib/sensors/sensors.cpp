@@ -45,8 +45,8 @@ void readDHT20()
 void readLight()
 {
   int raw = analogRead(light);
-  // Quy đổi: 4095 = Tối (0%), 500 = Sáng chói (100%)
-  Value_Light = map(raw, 4095, 500, 0, 100);
+  // Quy đổi: 500 = Tối (0%), 4095 = Sáng chói (100%)
+  Value_Light = map(raw, 500, 4095, 0, 100);
   Value_Light = constrain(Value_Light, 0, 100);
 }
 

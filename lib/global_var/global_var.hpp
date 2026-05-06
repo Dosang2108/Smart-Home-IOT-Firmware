@@ -12,7 +12,7 @@ extern "C"
 // ============ GPIO Configuration ============
 
 // #define soilMoisturePin 1    // A0 (GPIO1)
-#define light 1              // A1 (GPIO2)
+#define light 1              // A1 (GPIO1                                                   )
 #define FAN_PIN 10           // Fan pin (GPIO10)
 #define PIN_NEO_PIXEL 18      // RGB NeoPixel pin (GPIO6)
 #define NUM_PIXELS 4
