@@ -90,12 +90,17 @@ extern "C"
 // ============ Password FSM ============
 #define PASSWORD_STATE_CHECK  0
 #define PASSWORD_STATE_CHANGE 1
-#define DOOR_OPEN_DURATION    2000
+#define DOOR_SERVO_MOVE_DURATION 2000
     extern int passwordStatus;
     extern String adminPassword;
     extern String inputPass;
 
-    enum DoorState { DOOR_CLOSED, DOOR_OPENING, DOOR_CLOSING };
+    enum DoorState {
+        DOOR_CLOSED = 0,
+        DOOR_OPENING = 1,
+        DOOR_CLOSING = 2,
+        DOOR_OPEN = 3
+    };
     extern DoorState doorState;
     extern unsigned long doorOpenTime;
 

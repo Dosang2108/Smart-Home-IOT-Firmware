@@ -220,6 +220,8 @@ const char* door_state_to_text(DoorState state)
       return "opening";
     case DOOR_CLOSING:
       return "closing";
+    case DOOR_OPEN:
+      return "open";
     default:
       return "unknown";
   }
@@ -229,16 +231,15 @@ void handleDoorServo()
 {
   switch (doorState) {
     case DOOR_CLOSED:
+    case DOOR_OPEN:
       break;
     case DOOR_OPENING:
-      if (millis_present - doorOpenTime >= DOOR_OPEN_DURATION) {
-        servo_close();
-        doorState = DOOR_CLOSING;
-        doorOpenTime = millis_present;
+      if (millis_present - doorOpenTime >= DOOR_SERVO_MOVE_DURATION) {
+        doorState = DOOR_OPEN;
       }
       break;
     case DOOR_CLOSING:
-      if (millis_present - doorOpenTime >= DOOR_OPEN_DURATION) {
+      if (millis_present - doorOpenTime >= DOOR_SERVO_MOVE_DURATION) {
         servo_detach_motor();
         doorState = DOOR_CLOSED;
       }

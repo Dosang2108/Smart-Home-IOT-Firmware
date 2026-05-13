@@ -144,8 +144,7 @@ Thông tin WiFi/MQTT hiện đang hard-code trong `lib/global_var/global_var.cpp
   - Gắn servo nếu cần.
   - Ghi góc mở.
   - Đặt `doorState = DOOR_OPENING`.
-  - Sau 2 giây tự đóng.
-  - Sau thêm 2 giây detach servo và đặt `DOOR_CLOSED`.
+  - Sau 2 giây đặt `DOOR_OPEN` và giữ servo ở góc mở cho đến khi có lệnh đóng.
 - `door_command_close()`:
   - Ghi góc đóng.
   - Đặt `doorState = DOOR_CLOSING`.
@@ -154,6 +153,7 @@ Thông tin WiFi/MQTT hiện đang hard-code trong `lib/global_var/global_var.cpp
   - `0 = closed`
   - `1 = opening`
   - `2 = closing`
+  - `3 = open`
 
 ## 9. FSM mật khẩu qua IR remote
 

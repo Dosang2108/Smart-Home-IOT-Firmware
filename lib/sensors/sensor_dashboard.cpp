@@ -456,7 +456,7 @@ const char index_html[] PROGMEM = R"rawliteral(
           </div>
         </article>
         <article class="kpi">
-          <small>Cua tu dong</small>
+          <small>Cua servo</small>
           <div id="doorStatusVal" class="value">--</div>
           <span id="doorStatusMeta" style="color:var(--muted); font-size:0.86rem;">state=--</span>
         </article>

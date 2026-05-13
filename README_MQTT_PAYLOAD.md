@@ -204,9 +204,9 @@ Payload:
 }
 ```
 
-`doorState`: `0=DOOR_CLOSED`, `1=DOOR_OPENING`, `2=DOOR_CLOSING`.
+`doorState`: `0=DOOR_CLOSED`, `1=DOOR_OPENING`, `2=DOOR_CLOSING`, `3=DOOR_OPEN`.
 
-`doorStatus`: `"closed" | "opening" | "closing"`.
+`doorStatus`: `"closed" | "opening" | "closing" | "open"`.
 
 ## 6) TELEMETRY Topic
 
