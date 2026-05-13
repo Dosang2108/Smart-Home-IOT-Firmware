@@ -17,6 +17,7 @@ extern "C"
 #define PIN_NEO_PIXEL 18      // RGB NeoPixel pin (GPIO6)
 #define NUM_PIXELS 4
 #define PIR_PIN GPIO_NUM_7          // PIR motion sensor
+#define PIR_AUTO_LIGHT_ENABLED 0    // 0 = PIR only reports motion; 1 = PIR turns on white LED.
 #define IR_RECV_PIN GPIO_NUM_9       // IR receiver pin 
 #define SERVO_PIN 48         // Servo motor pin (GPIO48)
 #define I2C_SCL_PIN GPIO_NUM_12       // I2C SCL (GPIO12)

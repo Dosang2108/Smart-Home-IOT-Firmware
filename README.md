@@ -77,7 +77,7 @@ Thông tin WiFi/MQTT hiện đang hard-code trong `lib/global_var/global_var.cpp
 | Task | Chu kỳ | Core | Chức năng |
 | --- | ---: | ---: | --- |
 | `task_comms` | 20 ms | 0 | Cập nhật `millis_present`, chạy MQTT loop, xử lý HTTP dashboard client. |
-| `task_control` | 100 ms | 1 | LED auto cycle, đọc PIR, xử lý IR remote, auto PIR light, servo cửa, timeout FSM mật khẩu. |
+| `task_control` | 100 ms | 1 | LED auto cycle, đọc PIR, xử lý IR remote, PIR auto light nếu được bật cấu hình, servo cửa, timeout FSM mật khẩu. |
 | `task_ui` | 1 s | 1 | Render dữ liệu lên LCD. |
 | `task_telemetry` | 30 s | 1 | Đọc cảm biến và publish telemetry/state MQTT. |
 
@@ -126,11 +126,13 @@ Thông tin WiFi/MQTT hiện đang hard-code trong `lib/global_var/global_var.cpp
   - Vòng màu: đỏ, cam, vàng, xanh lá, cyan, xanh dương, tím, trắng.
 - Chế độ off:
   - Tắt NeoPixel và tắt auto cycle.
-  - Vì `mqttLedState` được đặt về `false`, PIR auto light có thể bật LED trắng lại nếu phát hiện chuyển động.
+  - PIR không tự bật LED khi `PIR_AUTO_LIGHT_ENABLED` đang để `0`.
 
 ### PIR auto light
 
-- Chỉ hoạt động khi không có điều khiển LED manual qua MQTT/dashboard (`mqttLedState == false`).
+- Mặc định đang tắt bằng cấu hình `PIR_AUTO_LIGHT_ENABLED 0` trong `lib/global_var/global_var.hpp`.
+- Khi tắt cấu hình này, PIR chỉ cập nhật `pirDetected` để test/hiển thị, không tự bật đèn.
+- Nếu đổi `PIR_AUTO_LIGHT_ENABLED` thành `1`, tính năng chỉ hoạt động khi không có điều khiển LED manual qua MQTT/dashboard (`mqttLedState == false`).
 - Khi PIR phát hiện chuyển động: bật LED trắng.
 - Khi hết chuyển động: giữ sáng 5 giây rồi tắt.
 
@@ -498,9 +500,9 @@ Kết quả:
     - Các biến như `mqttLedState`, `mqttFanSpeed`, `doorState`, sensor values được dùng bởi MQTT callback, web dashboard và task control/telemetry.
     - Với kiểu nhỏ thường ít rủi ro trên ESP32, nhưng payload state có thể chụp trạng thái giữa lúc đang cập nhật.
 
-13. Ý nghĩa lệnh LED `off` có thể gây hiểu nhầm.
-    - Sau khi `led off`, `mqttLedState = false`, nên PIR auto light có quyền bật đèn trắng khi có chuyển động.
-    - Nếu cần "tắt cưỡng bức", nên thêm state riêng như `pirAutoEnabled` hoặc `manualOverride`.
+13. Ý nghĩa lệnh LED `off` đã rõ hơn khi PIR auto light đang tắt mặc định.
+    - Sau khi `led off`, PIR không tự bật đèn lại vì `PIR_AUTO_LIGHT_ENABLED = 0`.
+    - Nếu cần bật/tắt PIR auto light qua MQTT/dashboard, nên thêm state riêng như `pirAutoEnabled`.
 
 ## 15. Ưu tiên xử lý đề xuất
 

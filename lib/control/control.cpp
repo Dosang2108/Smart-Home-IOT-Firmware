@@ -137,6 +137,10 @@ void led_off()
 // ============ PIR Auto Light ============
 void handlePIRControl()
 {
+  if (!PIR_AUTO_LIGHT_ENABLED) {
+    return;
+  }
+
   // Đang điều khiển bằng tay qua MQTT/App thì bỏ qua tự động
   if (mqttLedState) {
     return;
