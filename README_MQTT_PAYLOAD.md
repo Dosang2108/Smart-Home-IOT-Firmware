@@ -166,6 +166,7 @@ Payload:
 ```
 
 `source` is `cmd_topic` for commands received from the structured CMD topic.
+For controls made from the onboard web dashboard, `source` is `dashboard_http`.
 
 ## 5) STATE Topic
 

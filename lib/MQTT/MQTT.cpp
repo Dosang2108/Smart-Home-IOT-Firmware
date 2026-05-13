@@ -192,6 +192,11 @@ void publishActuatorStatus(void)
   Serial.println("Published structured state payload");
 }
 
+void publishControlAck(const char* commandId, bool success, const char* message, const char* source)
+{
+  publishCommandAck(String(commandId ? commandId : ""), success, message, source);
+}
+
 static bool parseCommandId(JsonDocument& doc, String* commandId)
 {
   if (doc["commandId"].is<const char*>()) {

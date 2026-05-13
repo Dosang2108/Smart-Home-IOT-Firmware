@@ -17,6 +17,7 @@ void registerChannels(void);
 void mqttLoop(void);
 void publishSensorData(void);
 void publishActuatorStatus(void);
+void publishControlAck(const char* commandId, bool success, const char* message, const char* source);
 void publishFeedback(const char* message);
 void mqtt_callback(char* topic, byte* payload, unsigned int length);
 void reconnect(void);

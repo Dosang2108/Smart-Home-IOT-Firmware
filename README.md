@@ -413,6 +413,7 @@ Dashboard chạy bằng `WebServer` trên port 80 sau khi WiFi kết nối.
 | `/api/door` | GET | Alias mở cửa. |
 
 Tất cả API hiện trả header `Access-Control-Allow-Origin: *`.
+Các API điều khiển actuator sẽ publish MQTT `state` và `ack`; ACK từ dashboard có `source = "dashboard_http"`.
 
 ## 13. Kiểm tra đã chạy
 
