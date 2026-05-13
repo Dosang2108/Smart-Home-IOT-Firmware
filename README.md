@@ -105,7 +105,10 @@ Thông tin WiFi/MQTT hiện đang hard-code trong `lib/global_var/global_var.cpp
 ### PIR
 
 - Đọc digital từ `GPIO7`.
-- Cập nhật `pirDetected`.
+- Dùng `INPUT` để đọc trực tiếp OUT của PIR; nếu raw luôn LOW thì cần kiểm tra dây/pin/nguồn cảm biến.
+- `PIR_ACTIVE_LEVEL` mặc định là `HIGH`.
+- Debounce 300 ms trước khi cập nhật `pirDetected`.
+- Sau khi phát hiện motion, giữ `pirDetected = true` thêm 5 giây bằng `PIR_MOTION_HOLD_MS`.
 
 ## 8. Điều khiển thiết bị
 
@@ -227,7 +230,7 @@ LCD tự chuyển trang mỗi 5 giây, render tối đa mỗi 1 giây.
 | Topic | Hướng | Retain | Nội dung |
 | --- | --- | --- | --- |
 | `yolohome/device/yolo_uno_01/cmd` | App/backend -> device | Không | Lệnh JSON điều khiển. |
-| `yolohome/device/yolo_uno_01/ack` | Device -> app/backend | Không | ACK kết quả lệnh. |
+| `yolohome/device/yolo_uno_01/ack` | Device -> app/backend | Không | ACK kết quả lệnh từ `cmd`, gửi sau khi xử lý callback. |
 | `yolohome/device/yolo_uno_01/state` | Device -> app/backend | Có | Trạng thái actuator và kết nối. |
 | `yolohome/device/yolo_uno_01/telemetry` | Device -> app/backend | Không | Dữ liệu cảm biến. |
 | `yolohome/device/yolo_uno_01/event` | Device -> app/backend | Không | Sự kiện hệ thống/cửa/feedback. |

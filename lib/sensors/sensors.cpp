@@ -52,5 +52,28 @@ void readLight()
 
 void readPIR()
 {
-  pirDetected = digitalRead(PIR_PIN);
+  static bool lastRawDetected = false;
+  static bool lastStableDetected = false;
+  static unsigned long lastRawChangeMs = 0;
+  static unsigned long lastMotionMs = 0;
+
+  const bool rawDetected = (digitalRead(PIR_PIN) == PIR_ACTIVE_LEVEL);
+  if (rawDetected != lastRawDetected) {
+    lastRawDetected = rawDetected;
+    lastRawChangeMs = millis_present;
+  }
+
+  if ((millis_present - lastRawChangeMs) < PIR_DEBOUNCE_MS) {
+    return;
+  }
+
+  if (rawDetected) {
+    lastMotionMs = millis_present;
+  }
+
+  const bool heldDetected = rawDetected || (lastMotionMs != 0 && (millis_present - lastMotionMs) < PIR_MOTION_HOLD_MS);
+  if (lastStableDetected != heldDetected) {
+    lastStableDetected = heldDetected;
+    pirDetected = heldDetected;
+  }
 }

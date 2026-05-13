@@ -167,6 +167,7 @@ Payload:
 ```
 
 `source` is `cmd_topic` for commands received from the structured CMD topic.
+ACK messages are non-retained and are published after the inbound command callback finishes.
 
 ## 5) STATE Topic
 

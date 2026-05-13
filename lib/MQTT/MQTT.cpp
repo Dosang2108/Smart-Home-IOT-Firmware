@@ -12,6 +12,12 @@ static const unsigned long RECONNECT_INTERVAL_MS = 5000;
 static const unsigned int MQTT_MAX_PAYLOAD_LEN = 512;
 static const uint16_t MQTT_PACKET_BUFFER_SIZE = 1024;
 static SemaphoreHandle_t mqttClientMutex = nullptr;
+static bool pendingStatePublish = false;
+static bool pendingCommandAck = false;
+static String pendingAckCommandId;
+static bool pendingAckSuccess = false;
+static String pendingAckMessage;
+static String pendingAckSource;
 
 static bool mqttClientLock(TickType_t timeoutTicks = pdMS_TO_TICKS(1000))
 {
@@ -177,7 +183,7 @@ static void publishTelemetryJson(void)
   mqttPublish(MQTT_TOPIC_TELEMETRY, payload.c_str());
 }
 
-static void publishCommandAck(const String& commandId, bool success, const char* message, const char* source)
+static bool publishCommandAck(const String& commandId, bool success, const char* message, const char* source)
 {
   JsonDocument doc;
   doc["schemaVersion"] = MQTT_SCHEMA_VERSION;
@@ -200,7 +206,52 @@ static void publishCommandAck(const String& commandId, bool success, const char*
 
   String payload;
   serializeJson(doc, payload);
-  mqttPublish(MQTT_TOPIC_ACK, payload.c_str());
+  bool ok = mqttPublish(MQTT_TOPIC_ACK, payload.c_str());
+  if (ok) {
+    Serial.printf("Published ACK payload: commandId=%s message=%s\n",
+                  commandId.c_str(),
+                  message ? message : "");
+  } else {
+    Serial.printf("Failed to publish ACK payload: commandId=%s message=%s\n",
+                  commandId.c_str(),
+                  message ? message : "");
+  }
+  return ok;
+}
+
+static void queueCommandAck(const String& commandId, bool success, const char* message, const char* source)
+{
+  pendingAckCommandId = commandId;
+  pendingAckSuccess = success;
+  pendingAckMessage = message ? message : "";
+  pendingAckSource = source ? source : "";
+  pendingCommandAck = true;
+}
+
+static void queueStatePublish(void)
+{
+  pendingStatePublish = true;
+}
+
+static void flushPendingPublishes(void)
+{
+  if (pendingCommandAck) {
+    if (publishCommandAck(pendingAckCommandId,
+                          pendingAckSuccess,
+                          pendingAckMessage.c_str(),
+                          pendingAckSource.c_str())) {
+      pendingCommandAck = false;
+    }
+  }
+
+  if (pendingStatePublish) {
+    if (publishStateJson()) {
+      pendingStatePublish = false;
+      Serial.println("Published queued state payload");
+    } else {
+      Serial.println("Failed to publish queued state payload");
+    }
+  }
 }
 
 void publishActuatorStatus(void)
@@ -416,6 +467,7 @@ void mqttLoop(void)
     client.loop();
     mqttClientUnlock();
   }
+  flushPendingPublishes();
 }
 
 void publishSensorData(void)
@@ -469,15 +521,15 @@ Serial.println("---------------------------");
     bool ok = handleStructuredCommand(message, &commandId, &detail);
 
     if (ok) {
-      publishActuatorStatus();
-      publishCommandAck(commandId, true, detail, "cmd_topic");
+      queueCommandAck(commandId, true, detail, "cmd_topic");
+      queueStatePublish();
       if (strcmp(detail, "door_open") == 0) {
         publishFeedback(MSG_DOOR_OPEN_SUCCESS);
       } else if (strcmp(detail, "door_close") == 0) {
         publishFeedback(MSG_DOOR_CLOSE_SUCCESS);
       }
     } else {
-      publishCommandAck(commandId, false, detail, "cmd_topic");
+      queueCommandAck(commandId, false, detail, "cmd_topic");
     }
     return;
   }

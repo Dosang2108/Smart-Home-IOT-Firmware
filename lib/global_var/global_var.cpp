@@ -57,6 +57,6 @@ void pinSetup(void)
     pinMode(FAN_PIN, OUTPUT);
     // pinMode(soilMoisturePin, INPUT);
     pinMode(light, INPUT);
-    pinMode(PIR_PIN, INPUT);
+    pinMode(PIR_PIN, PIR_INPUT_MODE);
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 }
