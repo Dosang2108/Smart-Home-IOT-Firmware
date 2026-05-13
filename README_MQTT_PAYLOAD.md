@@ -19,6 +19,7 @@ Structured topics:
 ## 2) General Notes
 
 - Max inbound payload size handled by callback: `512` bytes.
+- PubSubClient packet buffer is set to `1024` bytes for state/ack payloads.
 - JSON fields commonly included:
   - `schemaVersion`
   - `deviceId`
@@ -166,7 +167,6 @@ Payload:
 ```
 
 `source` is `cmd_topic` for commands received from the structured CMD topic.
-For controls made from the onboard web dashboard, `source` is `dashboard_http`.
 
 ## 5) STATE Topic
 

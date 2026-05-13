@@ -220,6 +220,7 @@ LCD tự chuyển trang mỗi 5 giây, render tối đa mỗi 1 giây.
   - Publish `online`.
   - Publish event `mqtt_connected`.
   - Publish state hiện tại.
+- MQTT packet buffer được đặt 1024 bytes để payload `state` không vượt giới hạn mặc định của PubSubClient.
 
 ### Topic
 
@@ -413,7 +414,7 @@ Dashboard chạy bằng `WebServer` trên port 80 sau khi WiFi kết nối.
 | `/api/door` | GET | Alias mở cửa. |
 
 Tất cả API hiện trả header `Access-Control-Allow-Origin: *`.
-Các API điều khiển actuator sẽ publish MQTT `state` và `ack`; ACK từ dashboard có `source = "dashboard_http"`.
+Các API điều khiển actuator sẽ publish MQTT `state`; dashboard không publish vào `cmd`.
 
 ## 13. Kiểm tra đã chạy
 

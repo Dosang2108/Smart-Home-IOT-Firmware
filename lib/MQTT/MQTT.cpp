@@ -10,6 +10,7 @@ PubSubClient client(espClient);
 static unsigned long lastReconnectAttemptMs = 0;
 static const unsigned long RECONNECT_INTERVAL_MS = 5000;
 static const unsigned int MQTT_MAX_PAYLOAD_LEN = 512;
+static const uint16_t MQTT_PACKET_BUFFER_SIZE = 1024;
 static SemaphoreHandle_t mqttClientMutex = nullptr;
 
 static bool mqttClientLock(TickType_t timeoutTicks = pdMS_TO_TICKS(1000))
@@ -30,9 +31,25 @@ static void mqttClientUnlock(void)
 static bool mqttPublish(const char* topic, const char* payload, bool retained = false)
 {
   if (!mqttClientLock()) {
+    Serial.printf("MQTT publish skipped [%s]: lock timeout\n", topic);
     return false;
   }
+  if (!client.connected()) {
+    Serial.printf("MQTT publish skipped [%s]: disconnected, rc=%d\n", topic, client.state());
+    mqttClientUnlock();
+    return false;
+  }
+
+  const unsigned int payloadLen = payload == nullptr ? 0 : strlen(payload);
   bool ok = client.publish(topic, payload, retained);
+  if (!ok) {
+    Serial.printf("MQTT publish failed [%s]: payload=%u topic=%u buffer=%u rc=%d\n",
+                  topic,
+                  payloadLen,
+                  (unsigned int)strlen(topic),
+                  client.getBufferSize(),
+                  client.state());
+  }
   mqttClientUnlock();
   return ok;
 }
@@ -117,7 +134,7 @@ static void publishEvent(const char* eventType, const char* message)
   mqttPublish(MQTT_TOPIC_EVENT, payload.c_str());
 }
 
-static void publishStateJson(void)
+static bool publishStateJson(void)
 {
   JsonDocument doc;
   doc["schemaVersion"] = MQTT_SCHEMA_VERSION;
@@ -139,7 +156,7 @@ static void publishStateJson(void)
 
   String payload;
   serializeJson(doc, payload);
-  mqttPublish(MQTT_TOPIC_STATE, payload.c_str(), true);
+  return mqttPublish(MQTT_TOPIC_STATE, payload.c_str(), true);
 }
 
 static void publishTelemetryJson(void)
@@ -188,13 +205,11 @@ static void publishCommandAck(const String& commandId, bool success, const char*
 
 void publishActuatorStatus(void)
 {
-  publishStateJson();
-  Serial.println("Published structured state payload");
-}
-
-void publishControlAck(const char* commandId, bool success, const char* message, const char* source)
-{
-  publishCommandAck(String(commandId ? commandId : ""), success, message, source);
+  if (publishStateJson()) {
+    Serial.println("Published structured state payload");
+  } else {
+    Serial.println("Failed to publish structured state payload");
+  }
 }
 
 static bool parseCommandId(JsonDocument& doc, String* commandId)
@@ -368,6 +383,10 @@ void init_Wifi_and_MQTT(void)
 
   espClient.setInsecure();
   client.setServer(mqtt_server, mqtt_port);
+  if (!client.setBufferSize(MQTT_PACKET_BUFFER_SIZE)) {
+    Serial.println("Error: failed to resize MQTT packet buffer");
+  }
+  Serial.printf("MQTT packet buffer size: %u bytes\n", client.getBufferSize());
   client.setCallback(mqtt_callback);
 
   if (mqttClientMutex == nullptr) {

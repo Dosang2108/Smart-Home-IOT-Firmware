@@ -40,7 +40,11 @@ static void taskControl(void* parameter)
     readPIR();
     handleIRRemote();
     handlePIRControl();
+    DoorState previousDoorState = doorState;
     handleDoorServo();
+    if (doorState != previousDoorState) {
+      publishActuatorStatus();
+    }
     checkFSMTimeout();
   }
 }

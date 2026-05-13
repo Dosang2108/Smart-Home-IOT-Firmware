@@ -805,7 +805,6 @@ static void handleRgbSet()
   led_rgb_set_auto(false);
   led_rgb_set(mqttLedR, mqttLedG, mqttLedB);
   publishActuatorStatus();
-  publishControlAck("dashboard_rgb_set", true, "led_set", "dashboard_http");
 
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "RGB set");
@@ -817,7 +816,6 @@ static void handleRgbOff()
   led_rgb_set_auto(false);
   led_rgb_off();
   publishActuatorStatus();
-  publishControlAck("dashboard_rgb_off", true, "led_off", "dashboard_http");
 
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "RGB off");
@@ -828,7 +826,6 @@ static void handleRgbAuto()
   mqttLedState = true;
   led_rgb_set_auto(true);
   publishActuatorStatus();
-  publishControlAck("dashboard_rgb_auto", true, "led_auto", "dashboard_http");
 
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "RGB auto");
@@ -840,7 +837,6 @@ static void handleFanSet()
     mqttFanSpeed = constrain(dashboardServer.arg("speed").toInt(), 0, 100);
     fan_set_speed(mqttFanSpeed);
     publishActuatorStatus();
-    publishControlAck("dashboard_fan_set", true, "fan_set", "dashboard_http");
   }
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "Fan set");
@@ -850,7 +846,6 @@ static void handleDoorOpen()
 {
   door_command_open();
   publishActuatorStatus();
-  publishControlAck("dashboard_door_open", true, "door_open", "dashboard_http");
 
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "Door Opened");
@@ -860,7 +855,6 @@ static void handleDoorClose()
 {
   door_command_close();
   publishActuatorStatus();
-  publishControlAck("dashboard_door_close", true, "door_close", "dashboard_http");
 
   dashboardServer.sendHeader("Access-Control-Allow-Origin", "*");
   dashboardServer.send(200, "text/plain", "Door Closed");
