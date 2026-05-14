@@ -1,5 +1,29 @@
 #include <global_var.hpp>
 
+#ifndef WIFI_SSID
+#define WIFI_SSID "Feel Coffee & Tea 3"
+#endif
+
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD "camonquykhach"
+#endif
+
+#ifndef MQTT_SERVER
+#define MQTT_SERVER "073d03b99541400d98714c4829a277a6.s1.eu.hivemq.cloud"
+#endif
+
+#ifndef MQTT_PORT
+#define MQTT_PORT 8883
+#endif
+
+#ifndef MQTT_USERNAME
+#define MQTT_USERNAME "IotHome2026"
+#endif
+
+#ifndef MQTT_PASSWORD
+#define MQTT_PASSWORD "Iot_home2026@"
+#endif
+
 // Software timers
 unsigned long millis_present = 0;
 unsigned long lastTime_100ms = 0;
@@ -13,12 +37,12 @@ void millis_update(void)
 }
 
 // WiFi & MQTT Configuration
-const char *ssid = "Feel Coffee & Tea 1";
-const char *password = "camonquykhach";
-const char *mqtt_server = "073d03b99541400d98714c4829a277a6.s1.eu.hivemq.cloud";
-const int mqtt_port = 8883;
-const char *mqtt_username = "IotHome2026";
-const char *mqtt_password = "Iot_home2026@";
+const char *ssid = WIFI_SSID;
+const char *password = WIFI_PASSWORD;
+const char *mqtt_server = MQTT_SERVER;
+const int mqtt_port = MQTT_PORT;
+const char *mqtt_username = MQTT_USERNAME;
+const char *mqtt_password = MQTT_PASSWORD;
 
 // Device instances
 deviceName Fan1 = {"Fan1", false, 0};
@@ -30,6 +54,8 @@ int Value_Light = 0;
 float Value_Temperature = 0.0;
 float Value_Humidity = 0.0;
 bool dhtDataValid = false;
+bool pirRawLevel = false;
+bool pirRawActive = false;
 bool pirDetected = false;
 
 // MQTT Control Variables

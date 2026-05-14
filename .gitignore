@@ -3,3 +3,9 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+__pycache__/
+*.py[cod]
+gateway/config.json
+gateway/*.db
+gateway/*.db-shm
+gateway/*.db-wal

@@ -384,6 +384,60 @@ Base payload:
 }
 ```
 
+### Kiến trúc Store-and-Forward Gateway đề xuất
+
+Firmware mặc định vẫn có thể publish trực tiếp telemetry/state/event lên HiveMQ Cloud qua WiFi. Nếu đường truyền Internet rớt, các bản tin phát sinh trong thời gian mất mạng có thể bị mất vì ESP32-S3 không phù hợp để giữ buffer dài hạn trong RAM. Repo đã bổ sung implementation Gateway tham khảo tại `gateway/store_forward_gateway.py` để chuyển ESP32-S3 sang vai trò thiết bị biên nhẹ và đẩy trách nhiệm lưu trữ offline sang Python IoT Gateway trong mạng nội bộ.
+
+Mô hình triển khai:
+
+- ESP32-S3 chỉ đọc cảm biến, điều khiển actuator và gửi JSON tới Gateway qua Local MQTT, ví dụ Mosquitto trong LAN, hoặc qua Serial/UART nếu muốn đi theo kênh vật lý.
+- Python Gateway lắng nghe topic nội bộ từ ESP32-S3, giữ nguyên namespace/payload MQTT hiện có để giảm thay đổi phía cloud.
+- Khi Gateway kết nối được Internet/HiveMQ Cloud, bản tin được forward ngay lên broker cloud.
+- Khi Gateway mất Internet, bản tin được ghi xuống SQLite thay vì giữ trong RAM.
+- Khi Internet phục hồi, một tiến trình nền đọc SQLite theo thứ tự `id` tăng dần, publish lên Cloud, đợi ACK thành công rồi mới xóa record đã gửi.
+
+Firmware có thêm PlatformIO environment `yolo_uno_gateway` để dùng MQTT plain TCP tới broker nội bộ:
+
+```ini
+[env:yolo_uno_gateway]
+build_flags =
+  -D MQTT_USE_TLS=0
+  -D MQTT_USE_AUTH=0
+  -D MQTT_SERVER=\"192.168.1.10\"
+  -D MQTT_PORT=1883
+```
+
+Khi triển khai thật, đổi `MQTT_SERVER` thành IP của máy chạy Mosquitto/Python Gateway.
+
+Stack kỹ thuật gợi ý cho Gateway:
+
+- `paho-mqtt`: tạo một client nhận dữ liệu từ broker nội bộ và một client publish lên HiveMQ Cloud. Dùng callback `on_connect`, `on_disconnect`, `on_publish` để cập nhật trạng thái kết nối và xác nhận bản tin đã gửi.
+- SQLite: tạo bảng buffer bền vững trên disk/SD/SSD, ví dụ `id`, `topic`, `payload_json`, `qos`, `retain`, `created_at`, `attempt_count`, `last_error`.
+- Concurrency: có thể dùng `threading` với một luồng nhận MQTT, một luồng flush SQLite, hoặc dùng `asyncio` nếu gateway có nhiều nguồn dữ liệu. Nên gom thao tác SQLite qua một worker/queue để tránh nhiều luồng cùng ghi DB.
+- Độ tin cậy: bật SQLite WAL mode, tạo index theo `id/created_at`, publish uplink với QoS 1, và chỉ xóa record sau khi nhận ACK publish thành công.
+
+Nguyên tắc replay dữ liệu:
+
+- `telemetry` và `event`: lưu và replay toàn bộ theo thứ tự sinh ra.
+- `state`: có thể lưu bản mới nhất theo thiết bị hoặc replay có kiểm soát; state thường là ảnh chụp hiện tại nên không nhất thiết cần gửi lại mọi bản cũ.
+- `availability`: không nên replay bản cũ sau khi mạng phục hồi, vì publish lại `offline` cũ có thể làm cloud hiểu sai trạng thái hiện tại.
+- `cmd`: không nên queue lệnh điều khiển actuator quá lâu nếu mất kết nối hai chiều. Nếu cần queue command, phải có TTL/expiry để tránh lệnh cũ như mở cửa/quạt chạy được thực thi muộn ngoài ý muốn.
+
+Schema SQLite tối thiểu:
+
+```sql
+CREATE TABLE IF NOT EXISTS outbound_queue (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  qos INTEGER NOT NULL DEFAULT 1,
+  retain INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT
+);
+```
+
 ## 12. Web dashboard nội bộ
 
 Dashboard chạy bằng `WebServer` trên port 80 sau khi WiFi kết nối.
@@ -451,6 +505,58 @@ Kết quả:
 - Cppcheck vẫn báo 1 lỗi high trong dependency `.pio/libdeps/yolo_uno/ArduinoJson/src/ArduinoJson/Polyfills/preprocessor.hpp`.
 - Lỗi này nằm trong thư viện ArduinoJson dưới `.pio/libdeps`, không nằm trong source dự án. Đây nhiều khả năng là false positive/preprocessor limitation của cppcheck với macro ArduinoJson.
 - Chưa có unit test trong thư mục `test`, nên chưa có test tự động cấp module.
+
+### Test đề xuất cho Store-and-Forward Gateway
+
+Các kịch bản này dùng để kiểm tra Gateway Python khi tính năng Store-and-Forward được triển khai. Mục tiêu là chứng minh dữ liệu không mất khi Cloud mất kết nối, Gateway restart, hoặc mạng phục hồi sau một khoảng offline.
+
+Lệnh test tự động phần SQLite/policy:
+
+```powershell
+python -m unittest discover -s gateway -p "test_*.py"
+```
+
+1. Test online bình thường:
+   - Chạy broker nội bộ, ví dụ Mosquitto, và chạy Python Gateway.
+   - Cho ESP32-S3 publish `telemetry`/`event`, hoặc dùng `mosquitto_pub` để giả lập payload cùng topic.
+   - Subscribe trên HiveMQ Cloud để xác nhận bản tin lên ngay.
+   - Kiểm tra SQLite không còn bản tin pending.
+
+2. Test mất Internet/HiveMQ Cloud:
+   - Giữ LAN nội bộ hoạt động nhưng ngắt Internet của Gateway, hoặc tạm cấu hình sai host HiveMQ trong Gateway.
+   - Gửi nhiều bản tin `telemetry` liên tiếp từ ESP32-S3.
+   - Kiểm tra SQLite tăng số record pending bằng lệnh:
+
+```powershell
+sqlite3 gateway_buffer.db "select count(*), min(id), max(id) from outbound_queue;"
+```
+
+3. Test phục hồi mạng và gửi bù:
+   - Khôi phục Internet/cấu hình HiveMQ.
+   - Quan sát log Gateway: cloud client reconnect, flush worker publish các record cũ theo thứ tự `id`.
+   - Subscribe Cloud để xác nhận nhận đủ số bản tin đã lưu.
+   - Kiểm tra SQLite giảm về `0` sau khi ACK publish thành công.
+
+4. Test restart Gateway trong lúc offline:
+   - Khi Internet đang mất và SQLite đã có bản tin pending, tắt tiến trình Gateway hoặc reboot máy chạy Gateway.
+   - Chạy lại Gateway khi vẫn offline và xác nhận dữ liệu pending còn nguyên trong SQLite.
+   - Khôi phục Internet và xác nhận các bản tin cũ vẫn được gửi bù.
+
+5. Test phân loại topic:
+   - Gửi thử `telemetry`, `event`, `state`, `availability`.
+   - Xác nhận `telemetry/event` được replay toàn bộ.
+   - Xác nhận `availability` cũ không bị replay sau khi mạng phục hồi.
+   - Nếu tối ưu `state` theo bản mới nhất, xác nhận Cloud chỉ nhận state cuối cùng hoặc nhận replay theo chính sách đã chọn.
+
+6. Test tải lớn và thứ tự:
+   - Gửi một burst 100-1000 bản tin giả lập khi offline.
+   - Kiểm tra Gateway không tăng RAM bất thường vì dữ liệu nằm trong SQLite.
+   - Sau khi online, kiểm tra thứ tự `id/created_at` trên Cloud và số lượng bản tin nhận được.
+
+7. Test command path an toàn:
+   - Gửi lệnh `cmd` từ Cloud về Gateway rồi xuống ESP32-S3 khi online, kiểm tra ESP32-S3 trả ACK.
+   - Khi Cloud offline, không queue lệnh actuator dài hạn trừ khi payload có TTL.
+   - Với lệnh có TTL, xác nhận Gateway bỏ qua lệnh đã hết hạn thay vì thực thi muộn.
 
 ## 14. Lỗi/rủi ro còn lại
 
