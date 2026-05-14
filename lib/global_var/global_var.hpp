@@ -45,18 +45,6 @@ extern "C"
 #define MQTT_TOPIC_EVENT         "yolohome/device/yolo_uno_01/event"
 #define MQTT_TOPIC_AVAILABILITY  "yolohome/device/yolo_uno_01/availability"
 
-// ============ MQTT Transport Mode ============
-// Defaults keep the current direct HiveMQ Cloud behavior. Build with
-// MQTT_USE_TLS=0 and MQTT_USE_AUTH=0 when publishing to a plain local broker
-// behind the Python Store-and-Forward Gateway.
-#ifndef MQTT_USE_TLS
-#define MQTT_USE_TLS 1
-#endif
-
-#ifndef MQTT_USE_AUTH
-#define MQTT_USE_AUTH 1
-#endif
-
 // ============ Timer Periods (ms) ============
 #define PERIOD_100MS  100
 #define PERIOD_1S     1000

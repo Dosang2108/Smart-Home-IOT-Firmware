@@ -5,8 +5,3 @@
 .vscode/ipch
 __pycache__/
 *.py[cod]
-gateway/.venv/
-gateway/config.json
-gateway/*.db
-gateway/*.db-shm
-gateway/*.db-wal

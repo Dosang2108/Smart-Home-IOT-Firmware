@@ -384,60 +384,6 @@ Base payload:
 }
 ```
 
-### Kiến trúc Store-and-Forward Gateway đề xuất
-
-Firmware mặc định vẫn có thể publish trực tiếp telemetry/state/event lên HiveMQ Cloud qua WiFi. Nếu đường truyền Internet rớt, các bản tin phát sinh trong thời gian mất mạng có thể bị mất vì ESP32-S3 không phù hợp để giữ buffer dài hạn trong RAM. Repo đã bổ sung implementation Gateway tham khảo tại `gateway/store_forward_gateway.py` để chuyển ESP32-S3 sang vai trò thiết bị biên nhẹ và đẩy trách nhiệm lưu trữ offline sang Python IoT Gateway trong mạng nội bộ.
-
-Mô hình triển khai:
-
-- ESP32-S3 chỉ đọc cảm biến, điều khiển actuator và gửi JSON tới Gateway qua Local MQTT, ví dụ Mosquitto trong LAN, hoặc qua Serial/UART nếu muốn đi theo kênh vật lý.
-- Python Gateway lắng nghe topic nội bộ từ ESP32-S3, giữ nguyên namespace/payload MQTT hiện có để giảm thay đổi phía cloud.
-- Khi Gateway kết nối được Internet/HiveMQ Cloud, bản tin được forward ngay lên broker cloud.
-- Khi Gateway mất Internet, bản tin được ghi xuống SQLite thay vì giữ trong RAM.
-- Khi Internet phục hồi, một tiến trình nền đọc SQLite theo thứ tự `id` tăng dần, publish lên Cloud, đợi ACK thành công rồi mới xóa record đã gửi.
-
-Firmware có thêm PlatformIO environment `yolo_uno_gateway` để dùng MQTT plain TCP tới broker nội bộ:
-
-```ini
-[env:yolo_uno_gateway]
-build_flags =
-  -D MQTT_USE_TLS=0
-  -D MQTT_USE_AUTH=0
-  -D MQTT_SERVER=\"192.168.1.10\"
-  -D MQTT_PORT=1883
-```
-
-Khi triển khai thật, đổi `MQTT_SERVER` thành IP của máy chạy Mosquitto/Python Gateway.
-
-Stack kỹ thuật gợi ý cho Gateway:
-
-- `paho-mqtt`: tạo một client nhận dữ liệu từ broker nội bộ và một client publish lên HiveMQ Cloud. Dùng callback `on_connect`, `on_disconnect`, `on_publish` để cập nhật trạng thái kết nối và xác nhận bản tin đã gửi.
-- SQLite: tạo bảng buffer bền vững trên disk/SD/SSD, ví dụ `id`, `topic`, `payload_json`, `qos`, `retain`, `created_at`, `attempt_count`, `last_error`.
-- Concurrency: có thể dùng `threading` với một luồng nhận MQTT, một luồng flush SQLite, hoặc dùng `asyncio` nếu gateway có nhiều nguồn dữ liệu. Nên gom thao tác SQLite qua một worker/queue để tránh nhiều luồng cùng ghi DB.
-- Độ tin cậy: bật SQLite WAL mode, tạo index theo `id/created_at`, publish uplink với QoS 1, và chỉ xóa record sau khi nhận ACK publish thành công.
-
-Nguyên tắc replay dữ liệu:
-
-- `telemetry` và `event`: lưu và replay toàn bộ theo thứ tự sinh ra.
-- `state`: có thể lưu bản mới nhất theo thiết bị hoặc replay có kiểm soát; state thường là ảnh chụp hiện tại nên không nhất thiết cần gửi lại mọi bản cũ.
-- `availability`: không nên replay bản cũ sau khi mạng phục hồi, vì publish lại `offline` cũ có thể làm cloud hiểu sai trạng thái hiện tại.
-- `cmd`: không nên queue lệnh điều khiển actuator quá lâu nếu mất kết nối hai chiều. Nếu cần queue command, phải có TTL/expiry để tránh lệnh cũ như mở cửa/quạt chạy được thực thi muộn ngoài ý muốn.
-
-Schema SQLite tối thiểu:
-
-```sql
-CREATE TABLE IF NOT EXISTS outbound_queue (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  topic TEXT NOT NULL,
-  payload_json TEXT NOT NULL,
-  qos INTEGER NOT NULL DEFAULT 1,
-  retain INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  attempt_count INTEGER NOT NULL DEFAULT 0,
-  last_error TEXT
-);
-```
-
 ## 12. Web dashboard nội bộ
 
 Dashboard chạy bằng `WebServer` trên port 80 sau khi WiFi kết nối.
@@ -473,3 +419,100 @@ Dashboard chạy bằng `WebServer` trên port 80 sau khi WiFi kết nối.
 Tất cả API hiện trả header `Access-Control-Allow-Origin: *`.
 Các API điều khiển actuator sẽ publish MQTT `state`; dashboard không publish vào `cmd`.
 
+## 13. Kiểm tra đã chạy
+
+### Build firmware
+
+Lệnh:
+
+```powershell
+C:\Users\Sang\.platformio\penv\Scripts\pio.exe run
+```
+
+Kết quả:
+
+- Status: success.
+- RAM: 48,488 / 327,680 bytes, khoảng 14.8%.
+- Flash: 1,069,821 / 3,342,336 bytes, khoảng 32.0%.
+- Không thấy lỗi compile/link trong lần build này.
+
+### Static check
+
+Lệnh:
+
+```powershell
+C:\Users\Sang\.platformio\penv\Scripts\pio.exe check
+C:\Users\Sang\.platformio\penv\Scripts\pio.exe check --skip-packages
+```
+
+Kết quả:
+
+- PlatformIO trả status passed.
+- Cppcheck vẫn báo 1 lỗi high trong dependency `.pio/libdeps/yolo_uno/ArduinoJson/src/ArduinoJson/Polyfills/preprocessor.hpp`.
+- Lỗi này nằm trong thư viện ArduinoJson dưới `.pio/libdeps`, không nằm trong source dự án. Đây nhiều khả năng là false positive/preprocessor limitation của cppcheck với macro ArduinoJson.
+- Chưa có unit test trong thư mục `test`, nên chưa có test tự động cấp module.
+
+## 14. Lỗi/rủi ro còn lại
+
+1. Credential đang hard-code trong source.
+   - `ssid`, WiFi password, MQTT server, MQTT username/password và mật khẩu cửa mặc định nằm trong `lib/global_var/global_var.cpp`.
+   - Nên chuyển sang file cấu hình local không commit, NVS provisioning, captive portal, hoặc build flags/secret manager.
+
+2. MQTT TLS đang dùng `espClient.setInsecure()`.
+   - Kết nối có mã hóa nhưng không xác thực certificate broker.
+   - Nên cấu hình CA certificate hoặc certificate pinning nếu triển khai thật.
+
+3. Kết nối WiFi ở boot có thể block vô hạn.
+   - `init_Wifi_and_MQTT()` chờ `WiFi.status() == WL_CONNECTED` trong vòng lặp không timeout.
+   - Nếu sai WiFi hoặc mất mạng, firmware sẽ kẹt ở boot và không vào RTOS/dashboard/offline mode.
+
+4. MQTT payload limit chưa khớp với PubSubClient.
+   - Code tự đặt `MQTT_MAX_PAYLOAD_LEN = 512`.
+   - PubSubClient mặc định `MQTT_MAX_PACKET_SIZE = 256` nếu không gọi `client.setBufferSize()`.
+   - Payload lệnh dài có thể không vào callback như kỳ vọng.
+
+5. Dashboard không có xác thực và dùng GET để thay đổi trạng thái.
+   - Bất kỳ thiết bị nào trong LAN truy cập được IP board đều có thể bật/tắt đèn, quạt, mở cửa.
+   - Header CORS `*` làm API dễ bị gọi từ trang web khác trong cùng mạng.
+
+6. Dashboard phụ thuộc CDN ngoài.
+   - Chart.js và Google Fonts được load từ Internet.
+   - Nếu client không có Internet, dashboard vẫn có thể điều khiển nhưng biểu đồ/font có thể lỗi.
+
+7. Một số chức năng khai báo nhưng chưa hoàn thiện.
+   - `pump_on`, `pump_off`, `pump_control_manual` có prototype nhưng implementation đang comment.
+   - `Pump1` được `extern` trong header nhưng chưa có definition.
+   - Soil moisture cũng đang comment dở.
+   - Build hiện vẫn pass vì các phần này chưa được dùng; nếu dùng lại sẽ dễ lỗi link/compile.
+
+8. `messages.hpp` có một dòng `\` lẻ.
+   - Build hiện vẫn pass, nhưng dòng này khó đọc và dễ gây lỗi tiền xử lý khi chỉnh sửa gần đó.
+
+9. README hiện không còn phản ánh đúng dự án.
+   - `README.md` vẫn là template PlatformIO/Espressif.
+   - Code fence phần cấu hình bị thiếu đóng fence, làm Markdown render sai.
+   - Nên thay bằng tài liệu ngắn trỏ tới `SPEC.md` và hướng dẫn build/upload.
+
+10. Encoding tiếng Việt trong một số file bị lỗi mojibake.
+    - Nhiều comment tiếng Việt trong source hiển thị sai encoding khi đọc bằng shell.
+    - Nên chuẩn hóa toàn bộ source/documentation về UTF-8.
+
+11. `IR_DEBUG` đang bật mặc định.
+    - Serial log sẽ in raw IR code và protocol liên tục khi dùng remote.
+    - Hữu ích lúc debug, nhưng nên tắt khi chạy production.
+
+12. Trạng thái global được đọc/ghi từ nhiều task mà chưa có lock chung.
+    - Các biến như `mqttLedState`, `mqttFanSpeed`, `doorState`, sensor values được dùng bởi MQTT callback, web dashboard và task control/telemetry.
+    - Với kiểu nhỏ thường ít rủi ro trên ESP32, nhưng payload state có thể chụp trạng thái giữa lúc đang cập nhật.
+
+13. Ý nghĩa lệnh LED `off` đã rõ hơn khi PIR auto light đang tắt mặc định.
+    - Sau khi `led off`, PIR không tự bật đèn lại vì `PIR_AUTO_LIGHT_ENABLED = 0`.
+    - Nếu cần bật/tắt PIR auto light qua MQTT/dashboard, nên thêm state riêng như `pirAutoEnabled`.
+
+## 15. Ưu tiên xử lý đề xuất
+
+1. Sửa bảo mật trước: bỏ hard-code credential, bật TLS verification, thêm auth cho dashboard.
+2. Sửa ổn định boot: thêm WiFi timeout/offline mode và reconnect WiFi định kỳ.
+3. Sửa MQTT buffer: gọi `client.setBufferSize()` đủ lớn cho payload 512 bytes hoặc giảm spec payload.
+4. Dọn code/documentation: bỏ prototype chưa dùng, sửa `messages.hpp`, chuẩn hóa README và UTF-8.
+5. Thêm test nhỏ cho parser lệnh MQTT và FSM mật khẩu nếu muốn duy trì dự án lâu dài.

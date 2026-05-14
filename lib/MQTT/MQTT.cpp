@@ -5,12 +5,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
-#if MQTT_USE_TLS
 WiFiClientSecure espClient;
-#else
-WiFiClient espClient;
-#endif
-
 PubSubClient client(espClient);
 static unsigned long lastReconnectAttemptMs = 0;
 static const unsigned long RECONNECT_INTERVAL_MS = 5000;
@@ -437,16 +432,7 @@ void init_Wifi_and_MQTT(void)
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
 
-#if MQTT_USE_TLS
   espClient.setInsecure();
-#else
-  Serial.println("MQTT TLS disabled: using plain TCP for local gateway broker");
-#endif
-  Serial.printf("MQTT target: %s:%d tls=%d auth=%d\n",
-                mqtt_server,
-                mqtt_port,
-                MQTT_USE_TLS,
-                MQTT_USE_AUTH);
   client.setServer(mqtt_server, mqtt_port);
   if (!client.setBufferSize(MQTT_PACKET_BUFFER_SIZE)) {
     Serial.println("Error: failed to resize MQTT packet buffer");
@@ -572,27 +558,14 @@ void reconnect()
   Serial.print("Connecting MQTT...");
   String clientId = "ESP32Client-" + String(random(0xffff), HEX);
 
-  bool connected = false;
-
-#if MQTT_USE_AUTH
-  connected = client.connect(
+  if (client.connect(
       clientId.c_str(),
       mqtt_username,
       mqtt_password,
       MQTT_TOPIC_AVAILABILITY,
       1,
       true,
-      "offline");
-#else
-  connected = client.connect(
-      clientId.c_str(),
-      MQTT_TOPIC_AVAILABILITY,
-      1,
-      true,
-      "offline");
-#endif
-
-  if (connected)
+      "offline"))
   {
     Serial.println("MQTT connected");
     mqttSubscribe(MQTT_TOPIC_CMD);
