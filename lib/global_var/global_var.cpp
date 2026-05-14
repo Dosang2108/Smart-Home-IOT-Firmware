@@ -1,11 +1,11 @@
 #include <global_var.hpp>
 
 #ifndef WIFI_SSID
-#define WIFI_SSID "Feel Coffee & Tea 3"
+#define WIFI_SSID "SANG"
 #endif
 
 #ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD "camonquykhach"
+#define WIFI_PASSWORD "21082005"
 #endif
 
 #ifndef MQTT_SERVER
